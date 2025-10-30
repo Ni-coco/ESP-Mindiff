@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 
 void main() {
   runApp(const MyApp());
@@ -7,116 +8,237 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Mindiff',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MainNavigation(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class MainNavigation extends StatefulWidget {
+  const MainNavigation({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MainNavigation> createState() => _MainNavigationState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _NavDestinationData {
+  const _NavDestinationData({
+    required this.title,
+    required this.icon,
+    required this.selectedIcon,
+    required this.page,
+  });
 
-  void _incrementCounter() {
+  final String title;
+  final IconData icon;
+  final IconData selectedIcon;
+  final Widget page;
+}
+
+class _MainNavigationState extends State<MainNavigation> {
+  int _currentIndex = 0;
+
+  late final List<_NavDestinationData> _destinations = <_NavDestinationData>[
+    const _NavDestinationData(
+      title: 'Accueil',
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home,
+      page: _HomePage(),
+    ),
+    const _NavDestinationData(
+      title: 'Programme',
+      icon: Icons.calendar_month_outlined,
+      selectedIcon: Icons.calendar_month,
+      page: _ProgrammePage(),
+    ),
+    const _NavDestinationData(
+      title: 'Caméra',
+      icon: Icons.camera_alt_outlined,
+      selectedIcon: Icons.camera_alt,
+      page: _CameraPage(),
+    ),
+    const _NavDestinationData(
+      title: 'Profil',
+      icon: Icons.person_outline,
+      selectedIcon: Icons.person,
+      page: _ProfilePage(),
+    ),
+  ];
+
+  void _onItemTapped(int index) {
+    if (index == _currentIndex) return;
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _currentIndex = index.clamp(0, _destinations.length - 1);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final ThemeData theme = Theme.of(context);
+    final int safeIndex = _currentIndex.clamp(0, _destinations.length - 1);
+    final _NavDestinationData current = _destinations[safeIndex];
+
     return Scaffold(
+      extendBody: true,
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        backgroundColor: theme.colorScheme.inversePrimary,
+        title: Text(current.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: current.page,
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant,
+                width: 1.0,
+              ),
             ),
-          ],
+            child: NavigationBarTheme(
+              data: NavigationBarThemeData(
+                indicatorShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                indicatorColor: theme.colorScheme.primary.withOpacity(0.12),
+                overlayColor: MaterialStateProperty.resolveWith((states) {
+                  if (states.contains(MaterialState.hovered) ||
+                      states.contains(MaterialState.focused) ||
+                      states.contains(MaterialState.pressed)) {
+                    return Colors.transparent; // pas d'overlay hover/focus/pressed
+                  }
+                  return null; // par défaut sinon
+                }),
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  splashFactory: NoSplash.splashFactory,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                ),
+                child: _SquareIndicatorNavigationBar(
+                  destinations: _destinations,
+                  selectedIndex: safeIndex,
+                  onDestinationSelected: _onItemTapped,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+// Widget personnalisé qui force un indicateur carré centré sous l'icône
+class _SquareIndicatorNavigationBar extends StatelessWidget {
+  const _SquareIndicatorNavigationBar({
+    super.key,
+    required this.destinations,
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  final List<_NavDestinationData> destinations;
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      height: 64,
+      backgroundColor: Colors.transparent,
+      indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      indicatorColor: Colors.transparent, // retirée pour custom indicator
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+      selectedIndex: selectedIndex,
+      onDestinationSelected: onDestinationSelected,
+      destinations: List.generate(destinations.length, (i) {
+        final selected = i == selectedIndex;
+        return NavigationDestination(
+          icon: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (selected)
+                IgnorePointer(
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.14),
+                      shape: BoxShape.rectangle,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+              Icon(
+                selected ? destinations[i].selectedIcon : destinations[i].icon,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).iconTheme.color,
+                grade: 0.0,
+                opticalSize: 24,
+              ),
+            ],
+          ),
+          label: '',
+        );
+      }),
+    );
+  }
+}
+
+class _HomePage extends StatelessWidget {
+  const _HomePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('Bienvenue sur Accueil'),
+    );
+  }
+}
+
+class _ProgrammePage extends StatelessWidget {
+  const _ProgrammePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('Programme à venir'),
+    );
+  }
+}
+
+class _CameraPage extends StatelessWidget {
+  const _CameraPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('Caméra (à implémenter)'),
+    );
+  }
+}
+
+class _ProfilePage extends StatelessWidget {
+  const _ProfilePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text('Profil utilisateur'),
     );
   }
 }
