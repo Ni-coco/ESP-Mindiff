@@ -165,16 +165,7 @@ class RegisterOnboardingPage extends StatelessWidget {
   Widget _buildBottomNavigation(BuildContext context, int currentStep, RegisterOnboardingController controller) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: THelperFunctions.backgroundColor(context),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
+      color: THelperFunctions.backgroundColor(context),
       child: SafeArea(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
