@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mindiff_app/utils/theme.dart';
-import 'package:mindiff_app/navigation_menu.dart';
+import 'package:mindiff_app/pages/register_onboarding_page.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -13,7 +13,9 @@ class App extends StatelessWidget {
       themeMode: ThemeMode.system,
       theme: TAppTheme.LightTheme,
       darkTheme: TAppTheme.DarkTheme,
-      home: const NavigationMenu(),
+      // For testing: show registration page initially
+      home: const RegisterOnboardingPage(),
+      // home: const NavigationMenu(), // Uncomment this when you want to skip registration
     );
   }
 }

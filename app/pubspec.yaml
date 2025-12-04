@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   get: ^4.6.6
   iconsax: ^0.0.8
+  smooth_page_indicator: ^1.1.0
+  dropdown_button2: ^2.3.8
 
 dev_dependencies:
   flutter_test:
