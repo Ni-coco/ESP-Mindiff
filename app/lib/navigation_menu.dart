@@ -3,7 +3,8 @@ import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mindiff_app/pages/home_page.dart';
 import 'package:mindiff_app/pages/programme_page.dart';
-import 'package:mindiff_app/pages/camera_page.dart';
+import 'package:mindiff_app/pages/nutrition_page.dart';
+import 'package:mindiff_app/pages/metrics_page.dart';
 import 'package:mindiff_app/pages/profile_page.dart';
 import 'package:mindiff_app/utils/theme.dart';
 
@@ -27,7 +28,8 @@ class NavigationMenu extends StatelessWidget {
         destinations: const [
           NavigationDestination(icon: Icon(Iconsax.home), label: 'Home'),
           NavigationDestination(icon: Icon(Iconsax.activity), label: 'Programme'),
-          NavigationDestination(icon: Icon(Iconsax.camera), label: 'Caméra'),
+          NavigationDestination(icon: Icon(Iconsax.health), label: 'Nutrition'),
+          NavigationDestination(icon: Icon(Iconsax.chart_2), label: 'Métriques'),
           NavigationDestination(icon: Icon(Iconsax.user), label: 'Profil'),
         ],
       )),
@@ -39,5 +41,11 @@ class NavigationMenu extends StatelessWidget {
 class NavigationController extends GetxController {
   final Rx<int> selectedIndex = 0.obs;
 
-  final screens = [const HomePage(), const ProgrammePage(), const CameraPage(), const ProfilePage()];
+  final screens = [
+    const HomePage(),
+    const ProgrammePage(),
+    const NutritionPage(),
+    const MetricsPage(),
+    const ProfilePage(),
+  ];
 }
