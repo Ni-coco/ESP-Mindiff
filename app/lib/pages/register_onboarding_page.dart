@@ -4,6 +4,7 @@ import 'package:mindiff_app/utils/theme.dart';
 import 'package:mindiff_app/navigation_menu.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:mindiff_app/widgets/dropdown_button.dart';
+import 'package:mindiff_app/pages/login_page.dart';
 
 class RegisterOnboardingPage extends StatelessWidget {
   const RegisterOnboardingPage({super.key});
@@ -26,25 +27,7 @@ class RegisterOnboardingPage extends StatelessWidget {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: controller.totalSteps,
               itemBuilder: (context, index) {
-                return Obx(() => AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (child, animation) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(1.0, 0.0),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeInOut,
-                      )),
-                      child: FadeTransition(
-                        opacity: animation,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _buildStep(context, controller.currentStep.value, controller),
-                ));
+                return _buildStep(context, index, controller);
               },
             ),
           ),
@@ -432,6 +415,38 @@ class _Step1AccountInfoState extends State<_Step1AccountInfo> {
                 ),
               ),
               validator: _validateConfirmPassword,
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Login Link
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () {
+                  Get.off(() => const LoginPage());
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Vous avez déjà un compte? ',
+                      style: TextStyle(
+                        color: THelperFunctions.isDarkMode(context)
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      'Se connecter',
+                      style: TextStyle(
+                        color: TColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -933,17 +948,19 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
   }
 
   void _completeRegistration() {
-    // Here you would typically save all the data and navigate to the main app
-    // For now, we'll just show a success message
     Get.snackbar(
       'Inscription réussie!',
       'Votre compte a été créé avec succès',
       snackPosition: SnackPosition.BOTTOM,
       backgroundColor: TColors.primary,
       colorText: Colors.white,
+      margin: EdgeInsets.zero,
+      maxWidth: double.infinity,
+      borderRadius: 0,
     );
     // Navigate to main app after a delay
     Future.delayed(const Duration(seconds: 2), () {
+      Get.delete<RegisterOnboardingController>();
       Get.offAll(() => const NavigationMenu());
     });
   }
@@ -1033,6 +1050,26 @@ class RegisterOnboardingController extends GetxController {
   void setActivityLevel(String value) => activityLevel = value;
   void setHealthConsiderations(String value) => healthConsiderations = value;
 
+  void reset() {
+    name = null;
+    email = null;
+    password = null;
+    age = null;
+    gender = null;
+    height = null;
+    weight = null;
+    primaryGoal = null;
+    targetWeight = null;
+    activityLevel = null;
+    healthConsiderations = null;
+    currentStep.value = 0;
+    _validationCallbacks.clear();
+    _completeCallback = null;
+    if (pageController.hasClients) {
+      pageController.jumpToPage(0);
+    }
+  }
+
   void validateAndNextStep() {
     final callback = _validationCallbacks[currentStep.value];
     if (callback != null && callback()) {
@@ -1066,6 +1103,7 @@ class RegisterOnboardingController extends GetxController {
 
   @override
   void onClose() {
+    reset();
     pageController.dispose();
     super.onClose();
   }

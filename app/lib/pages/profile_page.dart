@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mindiff_app/controllers/theme_controller.dart';
 import 'package:mindiff_app/utils/theme.dart';
-import 'package:mindiff_app/pages/register_onboarding_page.dart';
+import 'package:mindiff_app/pages/login_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final themeController = Get.find<ThemeController>();
+    final themeController = Get.put(ThemeController(), permanent: true);
     
     return Scaffold(
       backgroundColor: THelperFunctions.backgroundColor(context),
@@ -84,7 +84,7 @@ class ProfilePage extends StatelessWidget {
                 ),
                 onTap: () {
                   // Déconnexion sans confirmation
-                  Get.offAll(() => const RegisterOnboardingPage());
+                  Get.offAll(() => const LoginPage());
                 },
               ),
             ),
