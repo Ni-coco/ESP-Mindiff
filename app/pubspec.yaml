@@ -38,6 +38,7 @@ dependencies:
   iconsax: ^0.0.8
   smooth_page_indicator: ^1.1.0
   dropdown_button2: ^2.3.8
+  fl_chart: ^0.68.0
 
 dev_dependencies:
   flutter_test:

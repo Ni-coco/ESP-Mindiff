@@ -13,7 +13,6 @@ class NavigationMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Supprimer l'ancien contrôleur s'il existe pour éviter les problèmes de cache
     if (Get.isRegistered<NavigationController>()) {
       Get.delete<NavigationController>();
     }
@@ -21,21 +20,33 @@ class NavigationMenu extends StatelessWidget {
     final darkMode = THelperFunctions.isDarkMode(context);
 
     return Scaffold(
-      bottomNavigationBar: Obx(() => NavigationBar(
-        height: 80,
-        elevation: 0,
-        selectedIndex: controller.selectedIndex.value,
-        onDestinationSelected: (index) => controller.selectedIndex.value = index,
-        backgroundColor: darkMode ? Colors.black : Colors.white,
-        indicatorColor: darkMode ? TColors.white.withValues(alpha: 0.1) : TColors.black.withValues(alpha: 0.1),
+      bottomNavigationBar: Obx(() => Container(
+        decoration: BoxDecoration(
+          border: darkMode 
+              ? null 
+              : Border(
+                  top: BorderSide(
+                    color: Colors.grey.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+        ),
+        child: NavigationBar(
+          height: 80,
+          elevation: 0,
+          selectedIndex: controller.selectedIndex.value,
+          onDestinationSelected: (index) => controller.selectedIndex.value = index,
+          backgroundColor: darkMode ? Colors.black : Colors.white,
+          indicatorColor: darkMode ? TColors.white.withValues(alpha: 0.1) : TColors.black.withValues(alpha: 0.1),
 
-        destinations: const [
-          NavigationDestination(icon: Icon(Iconsax.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Iconsax.activity), label: 'Programme'),
-          NavigationDestination(icon: Icon(Iconsax.health), label: 'Nutrition'),
-          NavigationDestination(icon: Icon(Iconsax.chart_2), label: 'Métriques'),
-          NavigationDestination(icon: Icon(Iconsax.user), label: 'Profil'),
-        ],
+          destinations: const [
+            NavigationDestination(icon: Icon(Iconsax.home), label: 'Home'),
+            NavigationDestination(icon: Icon(Iconsax.activity), label: 'Programme'),
+            NavigationDestination(icon: Icon(Iconsax.health), label: 'Nutrition'),
+            NavigationDestination(icon: Icon(Iconsax.chart_2), label: 'Métriques'),
+            NavigationDestination(icon: Icon(Iconsax.user), label: 'Profil'),
+          ],
+        ),
       )),
       body: Obx(() {
         final index = controller.selectedIndex.value;
