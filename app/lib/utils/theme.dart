@@ -8,7 +8,7 @@ class TColors {
   static const Color black = Color(0xFF000000);
   
   // Primary Colors
-  static const Color primary = Color(0xFF2196F3);
+  static const Color primary = Color(0xFFA2B4EC);
   static const Color secondary = Color(0xFF03A9F4);
   
   // Text Colors
@@ -47,7 +47,7 @@ class TAppTheme {
         useMaterial3: true,
         brightness: Brightness.light,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
+          seedColor: TColors.primary,
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: Colors.white,
@@ -83,7 +83,7 @@ class TAppTheme {
         useMaterial3: true,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
+          seedColor: TColors.primary,
           brightness: Brightness.dark,
         ),
         scaffoldBackgroundColor: Colors.grey[900],
