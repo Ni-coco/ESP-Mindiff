@@ -138,7 +138,7 @@ class _MetricsPageState extends State<MetricsPage> {
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: THelperFunctions.textColor(context),
-                    fontSize: 16,
+                    fontSize: 22,
                   ),
                 ),
               ],
@@ -194,7 +194,7 @@ class _MetricsPageState extends State<MetricsPage> {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: THelperFunctions.textColor(context),
-                fontSize: 14,
+                fontSize: 18,
               ),
             ),
             const SizedBox(height: 8),
@@ -457,7 +457,7 @@ class _MetricsPageState extends State<MetricsPage> {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: THelperFunctions.textColor(context),
-                    fontSize: 14,
+                    fontSize: 18,
                   ),
                 ),
               ],
