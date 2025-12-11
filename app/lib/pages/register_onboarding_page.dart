@@ -115,8 +115,8 @@ class RegisterOnboardingPage extends StatelessWidget {
         };
       case 3:
         return {
-          'title': 'Niveau d\'activité',
-          'description': 'Indiquez votre niveau d\'activité actuel',
+          'title': 'Nombre de séances par semaine',
+          'description': 'Combien de séances souhaitez-vous faire par semaine ?',
         };
       case 4:
         return {
@@ -812,7 +812,7 @@ class _Step3FitnessGoalsState extends State<_Step3FitnessGoals> {
   }
 }
 
-// Step 4: Activity Level
+// Step 4: Sessions Per Week
 class _Step4ActivityLevel extends StatefulWidget {
   final RegisterOnboardingController controller;
   
@@ -823,19 +823,32 @@ class _Step4ActivityLevel extends StatefulWidget {
 }
 
 class _Step4ActivityLevelState extends State<_Step4ActivityLevel> {
-  String? _selectedActivityLevel;
+  final TextEditingController _sessionsController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _selectedActivityLevel = widget.controller.activityLevel;
+    if (widget.controller.sessionsPerWeek != null) {
+      _sessionsController.text = widget.controller.sessionsPerWeek.toString();
+    }
     
     // Register validation callback
     widget.controller.registerValidationCallback(3, _validateAndNext);
   }
 
+  @override
+  void dispose() {
+    _sessionsController.dispose();
+    super.dispose();
+  }
+
   bool _validateAndNext() {
-    return _selectedActivityLevel != null;
+    final value = _sessionsController.text.trim();
+    if (value.isEmpty) {
+      return false;
+    }
+    final sessions = int.tryParse(value);
+    return sessions != null && sessions >= 0 && sessions <= 14;
   }
 
   @override
@@ -845,70 +858,37 @@ class _Step4ActivityLevelState extends State<_Step4ActivityLevel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Activity Level Dropdown
-          FormField<String>(
-            initialValue: _selectedActivityLevel,
+          // Sessions Per Week Input
+          TextFormField(
+            controller: _sessionsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Nombre de séances par semaine',
+              hintText: 'Ex: 3',
+              prefixIcon: Icon(Icons.fitness_center_outlined),
+              suffixText: 'séances/semaine',
+            ),
             validator: (value) {
-              if (value == null) {
-                return 'Veuillez sélectionner un niveau d\'activité';
+              if (value == null || value.trim().isEmpty) {
+                return 'Veuillez entrer le nombre de séances souhaité';
+              }
+              final sessions = int.tryParse(value);
+              if (sessions == null) {
+                return 'Veuillez entrer un nombre valide';
+              }
+              if (sessions < 0) {
+                return 'Le nombre de séances ne peut pas être négatif';
+              }
+              if (sessions > 14) {
+                return 'Le nombre de séances ne peut pas dépasser 14 par semaine';
               }
               return null;
             },
-            builder: (field) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomDropdownButton2(
-                    hint: 'Sélectionner un niveau',
-                    value: _selectedActivityLevel,
-                    dropdownItems: const [
-                      'sedentary',
-                      'lightly_active',
-                      'moderately_active',
-                      'very_active',
-                      'extremely_active',
-                    ],
-                    dropdownLabels: const {
-                      'sedentary': 'Sédentaire (peu ou pas d\'exercice)',
-                      'lightly_active': 'Légèrement actif (exercice léger 1-3 jours/semaine)',
-                      'moderately_active': 'Modérément actif (exercice modéré 3-5 jours/semaine)',
-                      'very_active': 'Très actif (exercice intense 6-7 jours/semaine)',
-                      'extremely_active': 'Extrêmement actif (exercice très intense, travail physique)',
-                    },
-                    selectedItemBuilder: (context) {
-                      return const [
-                        'Sédentaire (peu ou pas d\'exercice)',
-                        'Légèrement actif (exercice léger 1-3 jours/semaine)',
-                        'Modérément actif (exercice modéré 3-5 jours/semaine)',
-                        'Très actif (exercice intense 6-7 jours/semaine)',
-                        'Extrêmement actif (exercice très intense, travail physique)',
-                      ].map((String item) => Text(item)).toList();
-                    },
-                    labelText: 'Niveau d\'activité',
-                    prefixIcon: const Icon(Icons.fitness_center_outlined),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedActivityLevel = value;
-                      });
-                      if (value != null) {
-                        widget.controller.setActivityLevel(value);
-                        field.didChange(value);
-                      }
-                    },
-                  ),
-                  if (field.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, left: 16),
-                      child: Text(
-                        field.errorText!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              );
+            onChanged: (value) {
+              final sessions = int.tryParse(value);
+              if (sessions != null && sessions >= 0 && sessions <= 14) {
+                widget.controller.setSessionsPerWeek(sessions);
+              }
             },
           ),
         ],
@@ -1023,7 +1003,7 @@ class RegisterOnboardingController extends GetxController {
   double? weight;
   String? primaryGoal;
   double? targetWeight;
-  String? activityLevel;
+  int? sessionsPerWeek;
   String? healthConsiderations;
 
   // Validation callbacks for each step
@@ -1047,7 +1027,7 @@ class RegisterOnboardingController extends GetxController {
   void setWeight(double value) => weight = value;
   void setPrimaryGoal(String value) => primaryGoal = value;
   void setTargetWeight(double value) => targetWeight = value;
-  void setActivityLevel(String value) => activityLevel = value;
+  void setSessionsPerWeek(int value) => sessionsPerWeek = value;
   void setHealthConsiderations(String value) => healthConsiderations = value;
 
   void reset() {
@@ -1060,7 +1040,7 @@ class RegisterOnboardingController extends GetxController {
     weight = null;
     primaryGoal = null;
     targetWeight = null;
-    activityLevel = null;
+    sessionsPerWeek = null;
     healthConsiderations = null;
     currentStep.value = 0;
     _validationCallbacks.clear();

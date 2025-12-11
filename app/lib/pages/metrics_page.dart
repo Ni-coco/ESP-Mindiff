@@ -614,7 +614,7 @@ class _MetricsPageState extends State<MetricsPage> {
       lineBarsData: [
         LineChartBarData(
           spots: bmiHistory.asMap().entries.map((entry) {
-            return FlSpot(entry.key.toDouble(), entry.value.bmi);
+            return FlSpot(entry.key.toDouble(), double.parse(entry.value.bmi.toStringAsFixed(1)));
           }).toList(),
           isCurved: true,
           color: TColors.primary,
