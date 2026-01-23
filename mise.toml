@@ -1,0 +1,10 @@
+[[env]]
+_.file = ".env"
+
+[tasks."mindiff:back"]
+dir = "{{ env.WORKSPACE }}"
+description = "Run mindiff backend"
+run = [
+    'uv run uvicorn app.main:app --reload'
+]
+
