@@ -6,7 +6,7 @@ import sys
 from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal, engine, Base
-from app.models.exercise import Exercice, Instruction, SecondaryMuscle
+from app.models.exercise import Exercise, Instruction, SecondaryMuscle
 
 
 def create_tables():
@@ -26,7 +26,7 @@ def import_exercices(json_file_path: str):
     with open(json_file_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    exercices_data = data.get("Exercices", [])
+    exercices_data = data.get("Exercises", [])
     print(f"Nombre d'exercices à importer: {len(exercices_data)}")
 
     # Create DB session
@@ -40,15 +40,15 @@ def import_exercices(json_file_path: str):
             try:
                 # Check if exercice already exists
                 exercice_id = exercice_data.get('id')
-                existing = db.query(Exercice).filter(Exercice.id == exercice_id).first()
+                existing = db.query(Exercise).filter(Exercise.id == exercice_id).first()
 
                 if existing:
-                    print(f"Exercice {exercice_id} déjà existant, ignoré")
+                    print(f"Exercise {exercice_id} déjà existant, ignoré")
                     skipped_count += 1
                     continue
 
                 # Create exercise object
-                exercice = Exercice(
+                exercice = Exercise(
                     id=exercice_data.get('id'),
                     title=exercice_data.get('name'),
                     description=None,  # Pas de description dans le JSON

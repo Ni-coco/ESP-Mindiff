@@ -1,18 +1,30 @@
-from pydantic import EmailStr
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from sqlalchemy.sql import func
+import datetime
+
+from sqlalchemy import Integer, String, Boolean, DateTime, func, Float
+import sqlalchemy.orm as sqlo
+
 from app.db.database import Base
+
+
+class UserMetrics(Base):
+    __tablename__ = "user_metrics"
+
+    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, index=True)
+    weight: sqlo.Mapped[float] = sqlo.mapped_column(Float, nullable=False)
+
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(EmailStr, unique=True, index=True, nullable=False)
-    username = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, index=True)
+    email : sqlo.Mapped[str] = sqlo.mapped_column(String, unique=True, index=True, nullable=False)
+    username : sqlo.Mapped[str] = sqlo.mapped_column(String, unique=True, index=True, nullable=False)
+    hashed_password : sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False)
+    is_active : sqlo.Mapped[bool] = sqlo.mapped_column(Boolean, default=True)
+    is_superuser : sqlo.Mapped[bool] = sqlo.mapped_column(Boolean, default=False)
+    created_at : sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at : sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(DateTime(timezone=True), onupdate=func.now())
 
+    # Relationships
+    user_metrics: sqlo.Mapped["UserMetrics"] = sqlo.relationship("UserMetrics", backref="user", uselist=False)

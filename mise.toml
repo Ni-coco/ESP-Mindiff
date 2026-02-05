@@ -1,10 +1,14 @@
-[[env]]
-_.file = ".env"
-
-[tasks."mindiff:back"]
-dir = "{{ env.WORKSPACE }}"
+[tasks."dev"]
 description = "Run mindiff backend"
 run = [
-    'uv run uvicorn app.main:app --reload'
+    "uv run uvicorn app.main:app --reload"
 ]
 
+[tasks."sync"]
+description = "Sync Python dependencies"
+run = [
+    "uv sync"
+]
+
+[hooks]
+cd = "mise run sync"
