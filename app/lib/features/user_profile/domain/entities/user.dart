@@ -1,4 +1,4 @@
-class User {
+class UserProfile {
   final int id;
   final String email;
   final String firstName;
@@ -8,7 +8,7 @@ class User {
   final String? sportObjective;
   final String? avatarUrl;
 
-  const User({
+  const UserProfile({
     required this.id,
     required this.email,
     required this.firstName,
@@ -19,7 +19,7 @@ class User {
     this.avatarUrl,
   });
 
-  User copyWith({
+  UserProfile copyWith({
     double? weightKg,
     double? heightCm,
     String? sportObjective,
@@ -27,7 +27,7 @@ class User {
     String? lastName,
     String? avatarUrl,
   }) {
-    return User(
+    return UserProfile(
       id: id,
       email: email,
       firstName: firstName ?? this.firstName,

@@ -1,81 +1,61 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:health_hub/features/profile/application/profile_state.dart';
-import 'package:health_hub/features/profile/domain/profile_repository.dart';
-import 'package:health_hub/features/profile/domain/user_profile.dart';
+import 'package:mindiff_app/features/user_profile/application/profile_state.dart';
+import 'package:mindiff_app/features/user_profile/domain/repositories/user_repository.dart';
 
-/// Un Cubit pour gérer l'état du profil utilisateur.
-/// Il dépend du ProfileRepository (couche Domain).
 class ProfileCubit extends Cubit<ProfileState> {
-  final ProfileRepository _profileRepository;
-  final String _currentUserId;
-  // Nous utilisons un StreamSubscription pour écouter les mises à jour en temps réel de Firestore.
-  StreamSubscription? _profileSubscription;
+  final UserRepository _profileRepository;
+  final int _currentUserId; // Changé de String à int pour correspondre à UserProfile
 
   ProfileCubit({
-    required ProfileRepository profileRepository,
-    required String currentUserId,
+    required UserRepository profileRepository,
+    required int currentUserId, // Changé ici aussi
   }) : _profileRepository = profileRepository,
         _currentUserId = currentUserId,
-  // L'état initial est toujours ProfileInitial
         super(const ProfileInitial()) {
-    // Démarre l'écoute du profil dès l'initialisation du Cubit
     _loadProfile();
   }
 
-  /// Lance l'écoute du profil utilisateur en temps réel via le Repository.
-  void _loadProfile() {
-    // Émet l'état de chargement
+  Future<void> _loadProfile() async {
     emit(const ProfileLoading(null));
 
-    // Lance l'écoute du Repository (qui utilise onSnapshot de Firestore)
-    // S'assure d'annuler toute écoute précédente avant de commencer une nouvelle
-    _profileSubscription?.cancel();
-
-    _profileSubscription = _profileRepository.getProfile(_currentUserId).listen(
-          (profile) {
-        // Nouvelle donnée reçue: on passe à l'état Loaded
+    try {
+      // Puisque getUserById est une Future (d'après ton UserRepositoryImpl)
+      final profile = await _profileRepository.getUserById(_currentUserId);
+      
+      if (profile != null) {
         emit(ProfileLoaded(profile));
-      },
-      onError: (error) {
-        // Erreur de lecture du stream
-        emit(ProfileError(state.profile, "Échec du chargement du profil: $error"));
-      },
-    );
+      } else {
+        emit(ProfileError(null, "Utilisateur non trouvé"));
+      }
+    } catch (error) {
+      emit(ProfileError(state.profile, "Échec du chargement du profil: $error"));
+    }
   }
 
-  /// Sauvegarde les informations du profil (taille et objectif).
   Future<void> saveProfileDetails({
     double? heightCm,
     String? sportObjective,
   }) async {
-    // Si l'état actuel est null (initial/erreur sans profil), on ne fait rien.
     if (state.profile == null) return;
 
     try {
-      // 1. Créer une copie du profil avec les nouvelles données
       final updatedProfile = state.profile!.copyWith(
         heightCm: heightCm,
         sportObjective: sportObjective,
       );
 
-      // 2. Appel au Repository (couche Domain) pour effectuer la sauvegarde
-      await _profileRepository.saveProfile(updatedProfile);
+      // Vérifie que cette méthode existe bien dans ton UserRepository
+      // Si elle s'appelle updateUser dans ton Repository, change le nom ici :
+      await _profileRepository.updateUser(updatedProfile);
 
-      // IMPORTANT: Nous n'émettons pas ProfileLoaded ici.
-      // Le changement est fait dans Firestore, ce qui déclenchera le stream
-      // de '_loadProfile' et mettra à jour l'état automatiquement.
+      // Comme on n'est pas en Stream, on émet manuellement le nouvel état
+      emit(ProfileLoaded(updatedProfile));
 
     } catch (e) {
-      // Si la sauvegarde échoue, on affiche une erreur
-      emit(ProfileError(state.profile, "Échec de l'enregistrement des détails: $e"));
+      emit(ProfileError(state.profile, "Échec de l'enregistrement: $e"));
     }
   }
 
-  /// S'assure d'annuler le StreamSubscription pour éviter les fuites de mémoire.
-  @override
-  Future<void> close() {
-    _profileSubscription?.cancel();
-    return super.close();
-  }
+  // Suppression de close() car sans StreamSubscription, le super.close() suffit.
 }

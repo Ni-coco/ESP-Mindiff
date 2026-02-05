@@ -2,7 +2,7 @@ import '../entities/user.dart';
 
 abstract class UserRepository {
   /// Créer un nouvel utilisateur dans la base
-  Future<User> createUser({
+  Future<UserProfile> createUser({
     required String email,
     required String firstName,
     required String lastName,
@@ -13,10 +13,10 @@ abstract class UserRepository {
   });
 
   /// Récupère un utilisateur par son ID
-  Future<User?> getUserById(int id);
+  Future<UserProfile?> getUserById(int id);
 
   /// Met à jour un utilisateur
-  Future<User> updateUser(User user);
+  Future<UserProfile> updateUser(UserProfile user);
 
   /// Supprime un utilisateur
   Future<void> deleteUser(int id);

@@ -9,7 +9,7 @@ class UserRepositoryImpl implements UserRepository {
   UserRepositoryImpl(this.dataSource);
 
   @override
-  Future<User> createUser({
+  Future<UserProfile> createUser({
     required String email,
     required String firstName,
     required String lastName,
@@ -33,12 +33,12 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
-  Future<User?> getUserById(int id) async {
+  Future<UserProfile?> getUserById(int id) async {
     return await dataSource.getUserById(id);
   }
 
   @override
-  Future<User> updateUser(User user) async {
+  Future<UserProfile> updateUser(UserProfile user) async {
     return await dataSource.updateUser(UserModel.fromEntity(user));
   }
 

@@ -1,4 +1,4 @@
-import 'package:health_hub/features/profile/domain/user_profile.dart';
+import 'package:mindiff_app/features/user_profile/domain/entities/user.dart';
 
 /// La classe de base abstraite pour tous les états du Cubit.
 /// Elle porte le profil utilisateur, même s'il est incomplet (null) ou en erreur.
