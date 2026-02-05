@@ -1,25 +1,33 @@
-# Mindiff Backend - Système d'Authentification
+# Mindiff Backend
 
 ## 📋 Vue d'ensemble
 
-Système d'authentification complet avec JWT pour l'API Mindiff.
+API REST pour la gestion d'exercices de fitness avec système d'authentification JWT.
 
-## 🔑 Fonctionnalités
-
-- ✅ Inscription d'utilisateur avec validation
-- ✅ Connexion avec email/mot de passe
-- ✅ Token JWT pour l'authentification
-- ✅ Hash sécurisé des mots de passe (bcrypt)
-- ✅ Protection des routes avec dépendances
-- ✅ Support OAuth2 (compatible Swagger UI)
-- ✅ Gestion des rôles (utilisateur actif, superutilisateur)
+### Fonctionnalités principales :
+- 🔐 **Authentification** : Inscription, connexion et gestion d'utilisateurs avec JWT
+- 💪 **Exercices** : CRUD complet pour les exercices de fitness
+- 🔍 **Recherche et filtres** : Recherche par nom, filtrage par partie du corps, équipement et muscle ciblé
+- 📊 **Import de données** : Script d'import depuis fichiers JSON
 
 ## 🚀 Installation
 
-### 1. Installer les dépendances
+### 1. Installer les dépendances avec uv
+
+Le projet utilise `uv` pour la gestion des dépendances :
 
 ```bash
-pip install -r requirements.txt
+# Installer uv si nécessaire
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Installer les dépendances
+uv sync
+```
+
+Ou avec pip traditionnel :
+
+```bash
+pip install -e .
 ```
 
 ### 2. Configurer les variables d'environnement
@@ -34,7 +42,10 @@ Modifier le fichier `.env` avec vos paramètres :
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/mindiff
+# SQLite (pour développement - par défaut)
+DATABASE_URL=sqlite:///./mindiff.db
+# PostgreSQL (pour production)
+# DATABASE_URL=postgresql://user:password@localhost:5432/mindiff
 
 # JWT Configuration
 SECRET_KEY=votre-cle-secrete-tres-longue-et-securisee
@@ -43,6 +54,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # Application
 DEBUG=True
+
+# Workspace (pour le script d'import)
+WORKSPACE_PATH=/chemin/vers/le/projet
 ```
 
 **⚠️ IMPORTANT** : Générer une clé secrète sécurisée :
@@ -51,7 +65,12 @@ DEBUG=True
 openssl rand -hex 32
 ```
 
-### 3. Configurer la base de données PostgreSQL
+### 3. Configurer la base de données
+
+#### Option A : SQLite (Développement)
+La base de données sera créée automatiquement au démarrage.
+
+#### Option B : PostgreSQL (Production)
 
 ```bash
 # Installer PostgreSQL si nécessaire
@@ -65,6 +84,11 @@ GRANT ALL PRIVILEGES ON DATABASE mindiff TO mindiff_user;
 \q
 ```
 
+Puis modifier `DATABASE_URL` dans `.env` :
+```env
+DATABASE_URL=postgresql://mindiff_user:votre_mot_de_passe@localhost:5432/mindiff
+```
+
 ### 4. Lancer l'application
 
 ```bash
@@ -75,211 +99,83 @@ L'API sera accessible sur : http://localhost:8000
 
 Documentation interactive : http://localhost:8000/docs
 
-## 📚 Endpoints API
-
-### Authentification
-
-#### POST `/api/auth/register`
-Créer un nouveau compte utilisateur.
-
-**Body:**
-```json
-{
-  "email": "user@example.com",
-  "username": "utilisateur",
-  "password": "motdepasse123"
-}
-```
-
-**Response (201):**
-```json
-{
-  "id": 1,
-  "email": "user@example.com",
-  "username": "utilisateur",
-  "is_active": true,
-  "is_superuser": false,
-  "created_at": "2025-11-28T10:00:00Z",
-  "updated_at": null
-}
-```
-
-#### POST `/api/auth/login`
-Connexion et obtention d'un token JWT.
-
-**Body:**
-```json
-{
-  "email": "user@example.com",
-  "password": "motdepasse123"
-}
-```
-
-**Response (200):**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer"
-}
-```
-
-#### POST `/api/auth/login/form`
-Connexion via OAuth2 form (pour Swagger UI).
-
-**Form data:**
-- username: email de l'utilisateur
-- password: mot de passe
-
-#### GET `/api/auth/me`
-Récupérer les informations de l'utilisateur connecté (protégé).
-
-**Headers:**
-```
-Authorization: Bearer <token>
-```
-
-**Response (200):**
-```json
-{
-  "id": 1,
-  "email": "user@example.com",
-  "username": "utilisateur",
-  "is_active": true,
-  "is_superuser": false,
-  "created_at": "2025-11-28T10:00:00Z",
-  "updated_at": null
-}
-```
-
-## 🔒 Protection des routes
-
-Pour protéger une route, utiliser les dépendances :
-
-```python
-from fastapi import APIRouter, Depends
-from app.core.dependencies import get_current_active_user, get_current_superuser
-from app.models.user import User
-
-router = APIRouter()
-
-# Route protégée - utilisateur connecté
-@router.get("/protected")
-async def protected_route(current_user: User = Depends(get_current_active_user)):
-    return {"message": f"Hello {current_user.username}"}
-
-# Route protégée - superutilisateur uniquement
-@router.get("/admin")
-async def admin_route(current_user: User = Depends(get_current_superuser)):
-    return {"message": "Admin access"}
-```
-
 ## 🏗️ Architecture
 
 ```
 app/
 ├── api/
-│   └── auth.py              # Routes d'authentification
+│   ├── auth.py              # Routes d'authentification
+│   ├── exercise.py          # Routes pour les exercices
+│   └── user.py              # Routes utilisateur
 ├── core/
 │   ├── config.py            # Configuration de l'application
 │   ├── security.py          # Fonctions de sécurité (hash, JWT)
-│   └── dependencies.py      # Dépendances FastAPI (auth)
+│   └── dependencies.py      # Dépendances FastAPI (auth, db)
 ├── db/
 │   └── database.py          # Configuration SQLAlchemy
 ├── models/
-│   └── user.py              # Modèle User
+│   ├── user.py              # Modèle User
+│   └── exercise.py          # Modèles Exercise, Instruction, SecondaryMuscle, BodyPart
 ├── schemas/
-│   └── user.py              # Schémas Pydantic
+│   ├── user.py              # Schémas Pydantic User
+│   └── exercise.py          # Schémas Pydantic Exercise
 ├── services/
-│   └── user_service.py      # Logique métier utilisateur
+│   ├── user.py              # Logique métier utilisateur
+│   └── exercise.py          # Logique métier exercices
 └── main.py                  # Point d'entrée de l'application
+
+scripts/
+└── import_exercices.py      # Script d'import de données JSON
+
+alembic/
+└── versions/
 ```
 
 ## 🧪 Tests
 
-Créer des tests dans le dossier `tests/` :
+Lancer les tests avec pytest :
 
-```python
-# tests/test_auth.py
-import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
-
-def test_register():
-    response = client.post(
-        "/api/auth/register",
-        json={
-            "email": "test@example.com",
-            "username": "testuser",
-            "password": "testpass123"
-        }
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["email"] == "test@example.com"
-    assert data["username"] == "testuser"
-
-def test_login():
-    # D'abord créer un utilisateur
-    client.post(
-        "/api/auth/register",
-        json={
-            "email": "test2@example.com",
-            "username": "testuser2",
-            "password": "testpass123"
-        }
-    )
-    
-    # Puis se connecter
-    response = client.post(
-        "/api/auth/login",
-        json={
-            "email": "test2@example.com",
-            "password": "testpass123"
-        }
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
+```bash
+pytest
 ```
+
+Exemple de test disponible dans `tests/test_auth.py` pour l'authentification.
 
 ## 🔐 Sécurité
 
-- **Hash de mot de passe** : bcrypt avec salt automatique
-- **JWT** : Tokens signés avec HS256
+- **Hash de mot de passe** : bcrypt avec salt automatique via `passlib`
+- **JWT** : Tokens signés avec HS256 via `python-jose`
 - **Expiration** : Les tokens expirent après 30 minutes (configurable)
 - **HTTPS** : À configurer en production
-- **CORS** : À restreindre en production
+- **CORS** : Actuellement ouvert à tous (`allow_origins=["*"]`), à restreindre en production
 
 ## 📝 Bonnes pratiques
 
 1. **En production** :
    - Utiliser HTTPS uniquement
-   - Restreindre les origines CORS
+   - Restreindre les origines CORS dans `app/main.py`
+   - Utiliser PostgreSQL au lieu de SQLite
    - Utiliser une clé secrète forte et unique
-   - Mettre à jour régulièrement les dépendances
+   - Mettre `DEBUG=False`
+   - Configurer un reverse proxy (nginx)
    - Activer les logs de sécurité
 
 2. **Gestion des tokens** :
-   - Stocker les tokens côté client de manière sécurisée
+   - Stocker les tokens côté client de manière sécurisée (pas en localStorage si possible)
    - Implémenter un refresh token pour les sessions longues
    - Invalider les tokens lors de la déconnexion
 
 3. **Validation** :
-   - Email valide requis
+   - Email valide requis (validé par `email-validator`)
    - Mot de passe minimum 8 caractères
    - Username entre 3 et 50 caractères
 
-## 🚨 Erreurs courantes
+## 🛠️ Technologies utilisées
 
-- **401 Unauthorized** : Token invalide ou expiré
-- **400 Bad Request** : Utilisateur inactif ou données invalides
-- **403 Forbidden** : Privilèges insuffisants
-- **409 Conflict** : Email ou username déjà utilisé
-
-## 📞 Support
-
-Pour toute question, consultez la documentation interactive : http://localhost:8000/docs
-
+- **FastAPI** : Framework web moderne et performant
+- **SQLAlchemy** : ORM pour la gestion de base de données
+- **Alembic** : Migrations de base de données
+- **Pydantic** : Validation de données et settings
+- **python-jose** : Gestion des JWT
+- **passlib** : Hash de mots de passe avec bcrypt
+- **uvicorn** : Serveur ASGI
