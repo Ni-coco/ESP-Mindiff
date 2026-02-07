@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from app.db.database import get_db
 from app.core.security import decode_access_token
-from app.services.user import UserService
+from app.services import user as service
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -31,7 +31,7 @@ async def get_current_user(
     if email is None:
         raise credentials_exception
 
-    user = UserService.get_user_by_email(db, email=email)
+    user = service.get_user_by_email(db, email=email)
     if user is None:
         raise credentials_exception
 

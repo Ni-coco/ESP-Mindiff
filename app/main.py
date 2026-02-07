@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.exercise import router as exercises_router
+from app.api.program import router as program_router
+from app.api.user import router as user_router
 from app.db.database import Base, engine
 
 # Create database tables
@@ -25,4 +27,5 @@ app.add_middleware(
 # Routing
 app.include_router(auth_router)
 app.include_router(exercises_router)
-
+app.include_router(program_router)
+app.include_router(user_router)

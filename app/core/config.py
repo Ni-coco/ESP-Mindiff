@@ -13,9 +13,6 @@ class Settings(BaseSettings):
     # Application
     DEBUG: bool = False
 
-    # Workspace
-    WORKSPACE: str = ""
-
     class Config:
         env_file = ".env"
         case_sensitive = True

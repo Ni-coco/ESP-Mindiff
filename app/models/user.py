@@ -11,7 +11,8 @@ class UserMetrics(Base):
 
     id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, index=True)
     weight: sqlo.Mapped[float] = sqlo.mapped_column(Float, nullable=False)
-
+    height: sqlo.Mapped[int] = sqlo.mapped_column(Integer, nullable=False)
+    age: sqlo.Mapped[int] = sqlo.mapped_column(Integer, nullable=False)
 
 
 class User(Base):
@@ -27,4 +28,4 @@ class User(Base):
     updated_at : sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    user_metrics: sqlo.Mapped["UserMetrics"] = sqlo.relationship("UserMetrics", backref="user", uselist=False)
+    user_metrics: sqlo.Relationship[list[UserMetrics]] = sqlo.relationship(back_populates="user_metrics")

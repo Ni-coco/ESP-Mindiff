@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class InstructionBase(BaseModel):
@@ -41,6 +41,10 @@ class ExerciseBase(BaseModel):
     gif: Optional[str] = None
     body_part: str
     target: Optional[str] = None
+
+
+class ExerciseResponse(ExerciseBase):
+    id: int
 
 
 class ExerciseCreate(ExerciseBase):
