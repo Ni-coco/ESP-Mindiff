@@ -18,6 +18,13 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=100)
 
 
+class UserUpdate(UserBase):
+    password: Optional[str] = Field(None, min_length=8, max_length=100)
+    is_active: Optional[bool] = None
+    is_superuser: Optional[bool] = None
+    metrics: Optional[UserMetrics] = None
+
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str

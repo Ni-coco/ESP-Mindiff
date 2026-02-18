@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models.program import Program
-from app.schemas.program import ProgramCreate
+from app.schemas.program import ProgramCreate, ProgramUpdate
 
 
 def list_programs(db: Session) -> list[type[Program]]:
@@ -31,7 +31,7 @@ def create_program(db: Session, program: ProgramCreate) -> Program:
     return db_program
 
 
-def update_program(db: Session, program_id: int, program: ProgramCreate) -> Optional[type[Program]]:
+def update_program(db: Session, program_id: int, program: ProgramUpdate) -> Optional[type[Program]]:
     """Update an existing program."""
     db_program = get_program(db, program_id)
     if not db_program:

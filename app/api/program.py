@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, get_current_active_user
 from app.services import program as service
 from app.schemas import program as schemas
 
-router = APIRouter(prefix="/programs", tags=["programs"])
+router = APIRouter(
+    prefix="/program",
+    tags=["Program"],
+    dependencies=[Depends(get_current_active_user)]
+)
 
 
 @router.get("/", response_model=list[schemas.ProgramResponse])
@@ -38,3 +42,30 @@ def get_program(program_id: int, db: Session = Depends(get_db)):
         db=db,
         program_id=program_id
     )
+
+
+@router.put("/{program_id}", response_model=schemas.ProgramResponse)
+def update_program(program_id: int, program: schemas.ProgramUpdate, db: Session = Depends
+    (get_db)):
+    """
+    Update a program by ID
+    """
+    return service.update_program(
+        db=db,
+        program_id=program_id,
+        program=program
+    )
+
+
+@router.delete("/{program_id}", response_model=schemas.ProgramResponse)
+def delete_program(program_id: int, db: Session = Depends(get_db)):
+    """
+    Delete a program by ID
+    """
+    success = service.delete_program(
+        db=db,
+        program_id=program_id
+    )
+    if not success:
+        return {"error": "Program not found"}
+    return {"message": "Program deleted successfully"}

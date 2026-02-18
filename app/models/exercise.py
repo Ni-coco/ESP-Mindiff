@@ -1,7 +1,8 @@
-from sqlalchemy import Integer, String
 import sqlalchemy.orm as sqlo
+from sqlalchemy import Integer, String
 
 from app.db.database import Base
+
 
 class Instruction(Base):
     __tablename__ = "instruction"
@@ -35,6 +36,12 @@ class Exercise(Base):
     target: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
 
     # Relationships
-    instructions: sqlo.Relationship[list[Instruction]] = sqlo.relationship(back_populates="exercise")
-    secondary_muscles: sqlo.Relationship[list[SecondaryMuscle]] = sqlo.relationship(back_populates="exercise")
-    body_part: sqlo.Relationship[BodyPart] = sqlo.relationship(back_populates="exercise")
+    instructions: sqlo.Relationship[list[Instruction]] = sqlo.relationship(
+        back_populates="exercise"
+    )
+    secondary_muscles: sqlo.Relationship[list[SecondaryMuscle]] = sqlo.relationship(
+        back_populates="exercise"
+    )
+    body_part: sqlo.Relationship[BodyPart] = sqlo.relationship(
+        back_populates="exercise"
+    )

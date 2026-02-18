@@ -3,11 +3,15 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, get_current_active_user
 from app.schemas import exercise as schemas
 from app.services import exercise as service
 
-router = APIRouter(prefix="/exercise", tags=["Exercise"])
+router = APIRouter(
+    prefix="/exercise",
+    tags=["Exercise"],
+    dependencies=[Depends(get_current_active_user)],
+)
 
 
 @router.get("/", response_model=List[schemas.Exercise])
