@@ -1,6 +1,10 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/utils/theme.dart';
 
 class MetricsPage extends StatefulWidget {
@@ -11,11 +15,33 @@ class MetricsPage extends StatefulWidget {
 }
 
 class _MetricsPageState extends State<MetricsPage> {
-  // Données de poids simulées (à remplacer par des données réelles plus tard)
-  final double currentWeight = 81.2; // Poids actuel en kg
-  final double weight30DaysAgo = 82.7; // Poids il y a 30 jours
-  final double height = 175.0; // Taille en cm (à récupérer du profil utilisateur)
-  final double targetWeight = 75.0; // Objectif de poids en kg
+  late final UserProfileController _userProfileController;
+
+  @override
+  void initState() {
+    super.initState();
+    _userProfileController = Get.find<UserProfileController>();
+  }
+
+  // Valeurs par défaut si le profil n'est pas initialisé
+  double get _fallbackCurrentWeight => 81.2;
+  double get _fallbackHeightCm => 175.0;
+  double get _fallbackTargetWeight => 75.0;
+
+  double get currentWeight =>
+      _userProfileController.profile.value?.weightKg ?? _fallbackCurrentWeight;
+
+  double get height =>
+      _userProfileController.profile.value?.heightCm ?? _fallbackHeightCm;
+
+  double get targetWeight =>
+      _userProfileController.targetWeight.value ?? _fallbackTargetWeight;
+
+  double get weight30DaysAgo {
+    // Simulé tant qu'on n'a pas d'historique réel : proche du poids actuel
+    final delta = (currentWeight - targetWeight).abs().clamp(0.3, 2.5);
+    return currentWeight + (currentWeight > targetWeight ? delta : -delta);
+  }
   
   // Données pour le graphique (6 derniers mois avec 2-3 entrées par mois)
   List<WeightData> get weightHistory => [
@@ -35,7 +61,7 @@ class _MetricsPageState extends State<MetricsPage> {
     WeightData(DateTime.now().subtract(const Duration(days: 45)), 82.8),
     WeightData(DateTime.now().subtract(const Duration(days: 30)), 82.7),
     WeightData(DateTime.now().subtract(const Duration(days: 15)), 82.0),
-    // Mois actuel
+    // Mois actuel (poids du profil si dispo)
     WeightData(DateTime.now(), currentWeight),
   ];
 
@@ -117,13 +143,18 @@ class _MetricsPageState extends State<MetricsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = THelperFunctions.isDarkMode(context);
-    return Scaffold(
-      backgroundColor: isDark ? TColors.darkBackground : Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Obx(() {
+      // Rebuild si le profil change (poids/taille/objectif)
+      final _ = _userProfileController.profile.value;
+      _userProfileController.targetWeight.value;
+
+      return Scaffold(
+        backgroundColor: isDark ? TColors.darkBackground : Colors.white,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Section Poids avec icône
             Row(
               children: [
@@ -470,10 +501,11 @@ class _MetricsPageState extends State<MetricsPage> {
                 _buildBMILineChartData(),
               ),
             ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   LineChartData _buildLineChartData() {

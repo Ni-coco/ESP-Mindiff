@@ -1,5 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/utils/theme.dart';
 
 class ProgrammePage extends StatelessWidget {
@@ -112,14 +116,26 @@ class ProgrammePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = THelperFunctions.isDarkMode(context);
-    
-    return Scaffold(
-      backgroundColor: isDark ? TColors.darkBackground : Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+
+    final userProfileController = Get.find<UserProfileController>();
+
+    return Obx(() {
+      final goal = userProfileController.primaryGoal.value;
+      final sessions = userProfileController.sessionsPerWeek.value;
+      final recommendedIds = _recommendedProgrammeIds(goal, sessions);
+
+      final orderedProgrammes = [
+        ...programmes.where((p) => recommendedIds.contains(p.id)),
+        ...programmes.where((p) => !recommendedIds.contains(p.id)),
+      ];
+
+      return Scaffold(
+        backgroundColor: isDark ? TColors.darkBackground : Colors.white,
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Titre avec icône
             Row(
               children: [
@@ -140,6 +156,14 @@ class ProgrammePage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
+            if (recommendedIds.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: _RecommendationBanner(
+                  text: _recommendationText(goal, sessions),
+                  isDark: isDark,
+                ),
+              ),
             Text(
               '${programmes.length} programmes disponibles',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -157,17 +181,28 @@ class ProgrammePage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             // Liste des programmes
-            ...programmes.map((programme) => Padding(
+            ...orderedProgrammes.map((programme) => Padding(
               padding: const EdgeInsets.only(bottom: 16.0),
-              child: _buildProgrammeCard(context, programme, isDark),
+              child: _buildProgrammeCard(
+                context,
+                programme,
+                isDark,
+                isRecommended: recommendedIds.contains(programme.id),
+              ),
             )),
           ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
-  Widget _buildProgrammeCard(BuildContext context, Programme programme, bool isDark) {
+  Widget _buildProgrammeCard(
+    BuildContext context,
+    Programme programme,
+    bool isDark, {
+    required bool isRecommended,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? Colors.transparent : Colors.white,
@@ -194,6 +229,25 @@ class ProgrammePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isRecommended)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: TColors.primary.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'Recommandé pour toi',
+                      style: TextStyle(
+                        color: TColors.primary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
               Row(
                 children: [
                   Container(
@@ -588,6 +642,86 @@ class ProgrammePage extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: color ?? THelperFunctions.textColor(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<int> _recommendedProgrammeIds(String? goal, int? sessionsPerWeek) {
+    // Objectif -> programmes (ids)
+    final base = switch (goal) {
+      'lose_weight' => <int>[1, 6],
+      'build_muscle' => <int>[2],
+      'increase_strength' => <int>[2],
+      'improve_endurance' => <int>[4, 6],
+      'general_fitness' => <int>[4, 1],
+      'maintain' => <int>[4, 3],
+      _ => <int>[],
+    };
+
+    // Ajustement simple selon la fréquence : peu de séances -> plus doux
+    final sessions = sessionsPerWeek ?? 0;
+    if (sessions <= 2) {
+      // Favoriser Yoga/renfo doux
+      final soft = <int>[3, 5];
+      return [...soft, ...base].toSet().toList();
+    }
+
+    if (sessions >= 5) {
+      // Favoriser programmes plus intenses si l’objectif s’y prête
+      return [...base].toSet().toList();
+    }
+
+    return [...base].toSet().toList();
+  }
+
+  String _recommendationText(String? goal, int? sessionsPerWeek) {
+    final goalLabel = switch (goal) {
+      'lose_weight' => 'Perdre du poids',
+      'build_muscle' => 'Prendre du muscle',
+      'maintain' => 'Maintenir',
+      'improve_endurance' => 'Endurance',
+      'increase_strength' => 'Force',
+      'general_fitness' => 'Forme générale',
+      _ => null,
+    };
+    final sessions = sessionsPerWeek;
+    if (goalLabel == null && sessions == null) return 'Sélection basée sur ton profil';
+    if (goalLabel != null && sessions != null) return 'Sélection basée sur "$goalLabel" • $sessions séances/sem.';
+    if (goalLabel != null) return 'Sélection basée sur "$goalLabel"';
+    return 'Sélection basée sur $sessions séances/sem.';
+  }
+}
+
+class _RecommendationBanner extends StatelessWidget {
+  final String text;
+  final bool isDark;
+
+  const _RecommendationBanner({required this.text, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.06) : Colors.grey.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Icon(Iconsax.magic_star, size: 18, color: TColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: THelperFunctions.textColor(context),
+                  ),
             ),
           ),
         ],

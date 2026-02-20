@@ -1,3 +1,5 @@
+enum MyThemeMode { light, dark, system }
+
 class UserProfile {
   final int id;
   final String email;
@@ -7,6 +9,7 @@ class UserProfile {
   final double? heightCm;
   final String? sportObjective;
   final String? avatarUrl;
+  final MyThemeMode themeMode; // Ajout du thème ici
 
   const UserProfile({
     required this.id,
@@ -17,6 +20,7 @@ class UserProfile {
     this.heightCm,
     this.sportObjective,
     this.avatarUrl,
+    this.themeMode = MyThemeMode.system,
   });
 
   UserProfile copyWith({
@@ -26,6 +30,7 @@ class UserProfile {
     String? firstName,
     String? lastName,
     String? avatarUrl,
+    MyThemeMode? themeMode,
   }) {
     return UserProfile(
       id: id,
@@ -36,6 +41,7 @@ class UserProfile {
       heightCm: heightCm ?? this.heightCm,
       sportObjective: sportObjective ?? this.sportObjective,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      themeMode: themeMode ?? this.themeMode,
     );
   }
 }

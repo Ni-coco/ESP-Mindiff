@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:mindiff_app/utils/theme.dart';
@@ -5,6 +7,7 @@ import 'package:mindiff_app/navigation_menu.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:mindiff_app/widgets/dropdown_button.dart';
 import 'package:mindiff_app/pages/login_page.dart';
+import 'package:mindiff_app/controllers/user_profile_controller.dart';
 
 class RegisterOnboardingPage extends StatelessWidget {
   const RegisterOnboardingPage({super.key});
@@ -494,13 +497,15 @@ class _Step2PersonalInfoState extends State<_Step2PersonalInfo> {
       }
     });
     _heightController.addListener(() {
-      final height = double.tryParse(_heightController.text);
+      final raw = _heightController.text.replaceAll(',', '.');
+      final height = double.tryParse(raw);
       if (height != null) {
         widget.controller.setHeight(height);
       }
     });
     _weightController.addListener(() {
-      final weight = double.tryParse(_weightController.text);
+      final raw = _weightController.text.replaceAll(',', '.');
+      final weight = double.tryParse(raw);
       if (weight != null) {
         widget.controller.setWeight(weight);
       }
@@ -623,7 +628,7 @@ class _Step2PersonalInfoState extends State<_Step2PersonalInfo> {
                 if (value == null || value.isEmpty) {
                   return 'La taille est requise';
                 }
-                final height = double.tryParse(value);
+                final height = double.tryParse(value.replaceAll(',', '.'));
                 if (height == null || height < 50 || height > 250) {
                   return 'Veuillez entrer une taille valide (50-250 cm)';
                 }
@@ -645,7 +650,7 @@ class _Step2PersonalInfoState extends State<_Step2PersonalInfo> {
                 if (value == null || value.isEmpty) {
                   return 'Le poids est requis';
                 }
-                final weight = double.tryParse(value);
+                final weight = double.tryParse(value.replaceAll(',', '.'));
                 if (weight == null || weight < 20 || weight > 300) {
                   return 'Veuillez entrer un poids valide (20-300 kg)';
                 }
@@ -686,7 +691,8 @@ class _Step3FitnessGoalsState extends State<_Step3FitnessGoals> {
     
     // Save data as user types
     _targetWeightController.addListener(() {
-      final weight = double.tryParse(_targetWeightController.text);
+      final raw = _targetWeightController.text.replaceAll(',', '.');
+      final weight = double.tryParse(raw);
       if (weight != null) {
         widget.controller.setTargetWeight(weight);
       }
@@ -797,7 +803,7 @@ class _Step3FitnessGoalsState extends State<_Step3FitnessGoals> {
               ),
               validator: (value) {
                 if (value != null && value.isNotEmpty) {
-                  final weight = double.tryParse(value);
+                  final weight = double.tryParse(value.replaceAll(',', '.'));
                   if (weight == null || weight < 20 || weight > 300) {
                     return 'Veuillez entrer un poids valide (20-300 kg)';
                   }
@@ -928,6 +934,22 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
   }
 
   void _completeRegistration() {
+    // Sauvegarder les données de l'onboarding dans le contrôleur global de profil
+    final userProfileController = Get.find<UserProfileController>();
+    final c = widget.controller;
+
+    userProfileController.setFromRegistration(
+      name: c.name ?? '',
+      email: c.email ?? '',
+      weight: c.weight,
+      height: c.height,
+      sportObjective: c.primaryGoal,
+      targetWeight: c.targetWeight,
+      sessionsPerWeek: c.sessionsPerWeek,
+      age: c.age,
+      gender: c.gender,
+    );
+
     Get.snackbar(
       'Inscription réussie!',
       'Votre compte a été créé avec succès',
