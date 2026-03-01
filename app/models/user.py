@@ -37,8 +37,8 @@ class User(Base):
     created_at: sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-    updated_at: sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(
-        DateTime(timezone=True), onupdate=func.now()
+    updated_at: sqlo.Mapped[datetime.datetime | None] = sqlo.mapped_column(
+        DateTime(timezone=True), nullable=True, onupdate=func.now()
     )
 
     # Relationships

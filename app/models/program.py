@@ -1,9 +1,16 @@
-from sqlalchemy import Integer, String
-import sqlalchemy.orm as sqlo
+from __future__ import annotations
 
-from app.db.database import Base
-from app.models.exercise import Exercise
+from typing import TYPE_CHECKING
+
+import sqlalchemy.orm as sqlo
+from sqlalchemy import Integer, String
+
 from app.core.enum import DifficultyLevel
+from app.db.database import Base
+from app.models.exercise import program_exercise
+
+if TYPE_CHECKING:
+    from app.models.exercise import Exercise
 
 
 class Program(Base):
@@ -17,4 +24,8 @@ class Program(Base):
     duration: sqlo.Mapped[int] = sqlo.mapped_column(Integer, nullable=True)
 
     # Relationships
-    exercises: sqlo.Relationship[list[Exercise]] = sqlo.relationship(back_populates="exercise")
+    exercises: sqlo.Mapped[list[Exercise]] = sqlo.relationship(
+        "Exercise",
+        secondary=program_exercise,
+        back_populates="programs",
+    )

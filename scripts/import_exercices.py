@@ -1,11 +1,13 @@
 """
 Script pour importer les exercices depuis le fichier JSON Firebase
 """
+
 import json
 import sys
+
 from sqlalchemy.orm import Session
 
-from app.db.database import SessionLocal, engine, Base
+from app.db.database import Base, SessionLocal, engine
 from app.models.exercise import Exercise, Instruction, SecondaryMuscle
 
 
@@ -23,7 +25,7 @@ def import_exercices(json_file_path: str):
     """
     # Load JSON file
     print(f"Chargement du fichier JSON: {json_file_path}")
-    with open(json_file_path, 'r', encoding='utf-8') as f:
+    with open(json_file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     exercices_data = data.get("Exercises", [])
@@ -39,41 +41,37 @@ def import_exercices(json_file_path: str):
         for exercice_data in exercices_data:
             try:
                 # Check if exercice already exists
-                exercice_id = exercice_data.get('id')
-                existing = db.query(Exercise).filter(Exercise.id == exercice_id).first()
+                exercise_id = exercice_data.get("id")
+                existing = db.query(Exercise).filter(Exercise.id == exercise_id).first()
 
                 if existing:
-                    print(f"Exercise {exercice_id} déjà existant, ignoré")
+                    print(f"Exercise {exercise_id} déjà existant, ignoré")
                     skipped_count += 1
                     continue
 
                 # Create exercise object
                 exercice = Exercise(
-                    id=exercice_data.get('id'),
-                    title=exercice_data.get('name'),
+                    id=exercice_data.get("id"),
+                    title=exercice_data.get("name"),
                     description=None,  # Pas de description dans le JSON
-                    equipment=exercice_data.get('equipment'),
-                    gif=exercice_data.get('gifUrl'),
-                    body_part=exercice_data.get('bodyPart'),
-                    target=exercice_data.get('target')
+                    equipment=exercice_data.get("equipment"),
+                    gif=exercice_data.get("gifUrl"),
+                    body_part=exercice_data.get("bodyPart"),
+                    target=exercice_data.get("target"),
                 )
 
                 # Ajouter les instructions
-                instructions = exercice_data.get('instructions', [])
+                instructions = exercice_data.get("instructions", [])
                 for instruction_text in instructions:
                     instruction = Instruction(
-                        description=instruction_text,
-                        exercice_id=exercice.id
+                        description=instruction_text, exercise_id=exercice.id
                     )
                     exercice.instructions.append(instruction)
 
                 # Ajouter les muscles secondaires
-                secondary_muscles = exercice_data.get('secondaryMuscles', [])
+                secondary_muscles = exercice_data.get("secondaryMuscles", [])
                 for muscle_name in secondary_muscles:
-                    muscle = SecondaryMuscle(
-                        name=muscle_name,
-                        exercice_id=exercice.id
-                    )
+                    muscle = SecondaryMuscle(name=muscle_name, exercise_id=exercice.id)
                     exercice.secondary_muscles.append(muscle)
 
                 # Ajouter à la session
@@ -85,7 +83,9 @@ def import_exercices(json_file_path: str):
                     db.commit()
 
             except Exception as e:
-                print(f"Erreur lors de l'import de l'exercice {exercice_data.get('id', 'unknown')}: {e}")
+                print(
+                    f"Erreur lors de l'import de l'exercice {exercice_data.get('id', 'unknown')}: {e}"
+                )
                 db.rollback()
                 continue
 
@@ -105,7 +105,9 @@ def import_exercices(json_file_path: str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        json_path = "/home/crocolle/Téléchargements/mindiff-95645-default-rtdb-export.json"
+        json_path = (
+            "/home/crocolle/Téléchargements/mindiff-95645-default-rtdb-export.json"
+        )
         print(f"Aucun fichier spécifié, utilisation du chemin par défaut: {json_path}")
     else:
         json_path = sys.argv[1]
@@ -115,4 +117,3 @@ if __name__ == "__main__":
 
     print("\nDémarrage de l'import...")
     import_exercices(json_path)
-

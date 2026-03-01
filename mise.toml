@@ -1,9 +1,26 @@
-[tasks."dev"]
+[tasks.reset-db]
+description = "Reset database"
+run = [
+    "uv run python scripts/seed-db.py --clean",
+]
+
+[tasks.db]
+description = "Initialize database"
+run = [
+    "uv run python scripts/seed_db.py",
+]
+
+[tasks.dev]
 description = "Run mindiff backend"
 run = [
-    "mise run docker",
-    "mise run vault",
     "uv run uvicorn app.main:app --reload --port 8082"
+]
+
+[tasks.init]
+description = "Initialize project"
+run = [
+    "mise run vault",
+    "mise run db",
 ]
 
 [tasks.vault]
@@ -15,10 +32,9 @@ run = [
 [tasks.docker]
 description = "Build and run Docker container"
 run = [
-    "cd docker && docker compose up --build --detach"
-]
+    "docker compose -f docker/docker-compose.yml --env-file .env up -d"]
 
-[tasks."sync"]
+[tasks.sync]
 description = "Sync Python dependencies"
 run = [
     "uv sync"

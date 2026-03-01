@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Reads the .env file and pushes all secrets (excluding Vault connection vars)
 into HashiCorp Vault KV v2 at secret/mindiff.

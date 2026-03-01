@@ -24,7 +24,9 @@ class VaultConfig:
 
 class Settings(BaseSettings):
     # Database
-    DATABASE_URL: str
+    PG_USER: str
+    PG_PASSWORD: str
+    PG_DB: str
 
     # JWT Configuration
     SECRET_KEY: str
