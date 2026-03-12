@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'exercise_analyzer.dart';
@@ -40,6 +41,12 @@ class _CameraPageState extends State<CameraPage>
   late AnimationController _switchAnim;
   late Animation<double> _fadeAnim;
 
+  // TTS
+  final FlutterTts _tts = FlutterTts();
+  String _lastSpokenAdvice = '';
+  bool _isSpeaking = false;
+  bool _ttsEnabled = true;
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +57,23 @@ class _CameraPageState extends State<CameraPage>
     );
     _fadeAnim = CurvedAnimation(parent: _switchAnim, curve: Curves.easeInOut);
     _switchAnim.forward();
+    _initTts();
     _requestPermissionAndInit();
+  }
+
+  Future<void> _initTts() async {
+    await _tts.setLanguage('fr-FR');
+    await _tts.setSpeechRate(0.5);
+    await _tts.setVolume(1.0);
+    _tts.setCompletionHandler(() => _isSpeaking = false);
+  }
+
+  void _speakAdvice(String advice) {
+    if (!_ttsEnabled || advice == _lastSpokenAdvice || _isSpeaking) return;
+    if (advice == 'Positionnez-vous devant la caméra') return;
+    _lastSpokenAdvice = advice;
+    _isSpeaking = true;
+    _tts.speak(advice);
   }
 
   Future<void> _requestPermissionAndInit() async {
@@ -129,12 +152,17 @@ class _CameraPageState extends State<CameraPage>
         _imageSize = imageSize;
         _feedback = feedback;
       });
+      if (feedback != null && feedback.advice.isNotEmpty) {
+        _speakAdvice(feedback.advice);
+      }
     }
   }
 
   void _onPageChanged(int index) {
     if (index == _selectedIndex) return;
     _analyzers[_selectedIndex].reset();
+    _lastSpokenAdvice = '';
+    _tts.stop();
     setState(() {
       _selectedIndex = index;
       _feedback = null;
@@ -153,11 +181,13 @@ class _CameraPageState extends State<CameraPage>
 
   void _resetCurrentExercise() {
     _analyzers[_selectedIndex].reset();
+    _lastSpokenAdvice = '';
     setState(() => _feedback = null);
   }
 
   @override
   void dispose() {
+    _tts.stop();
     _cameraController?.stopImageStream();
     _cameraController?.dispose();
     _poseDetector?.close();
@@ -284,6 +314,33 @@ class _CameraPageState extends State<CameraPage>
                       ),
                     ),
                     const Spacer(),
+                    // TTS toggle button
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _ttsEnabled = !_ttsEnabled);
+                        if (!_ttsEnabled) _tts.stop();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Icon(
+                          _ttsEnabled
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_off_rounded,
+                          color: _ttsEnabled
+                              ? const Color(0xFF00E5FF)
+                              : Colors.white70,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     // Reset button
                     GestureDetector(
                       onTap: _resetCurrentExercise,
