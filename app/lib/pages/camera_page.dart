@@ -1,140 +1,9 @@
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-// ---------------------------------------------------------------------------
-// Squat Analyzer
-// ---------------------------------------------------------------------------
-
-enum SquatPhase { standing, descending, bottom, ascending }
-
-class SquatFeedback {
-  final int repCount;
-  final SquatPhase phase;
-  final double kneeAngle;      // angle au genou (degrés)
-  final double hipAngle;       // angle à la hanche
-  final String advice;         // conseil textuel
-  final Color skeletonColor;   // couleur du skeleton selon qualité
-
-  const SquatFeedback({
-    required this.repCount,
-    required this.phase,
-    required this.kneeAngle,
-    required this.hipAngle,
-    required this.advice,
-    required this.skeletonColor,
-  });
-}
-
-class SquatAnalyzer {
-  int _repCount = 0;
-  SquatPhase _phase = SquatPhase.standing;
-
-  // Seuils en degrés
-  static const double _standingThreshold = 160.0;  // genou quasi droit
-  static const double _bottomThreshold = 100.0;    // genou bien fléchi
-  static const double _goodSquatAngle = 90.0;      // angle idéal
-
-  SquatFeedback analyze(Pose pose) {
-    final lHip = pose.landmarks[PoseLandmarkType.leftHip];
-    final lKnee = pose.landmarks[PoseLandmarkType.leftKnee];
-    final lAnkle = pose.landmarks[PoseLandmarkType.leftAnkle];
-    final lShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
-
-    // Fallback si points non détectés
-    if (lHip == null || lKnee == null || lAnkle == null || lShoulder == null) {
-      return SquatFeedback(
-        repCount: _repCount,
-        phase: _phase,
-        kneeAngle: 0,
-        hipAngle: 0,
-        advice: 'Positionnez tout le corps dans le cadre',
-        skeletonColor: const Color(0xFF00E5FF),
-      );
-    }
-
-    final kneeAngle = _calcAngle(lHip, lKnee, lAnkle);
-    final hipAngle = _calcAngle(lShoulder, lHip, lKnee);
-
-    // Machine à états pour compter les reps
-    switch (_phase) {
-      case SquatPhase.standing:
-        if (kneeAngle < _standingThreshold - 20) {
-          _phase = SquatPhase.descending;
-        }
-      case SquatPhase.descending:
-        if (kneeAngle <= _bottomThreshold) {
-          _phase = SquatPhase.bottom;
-        } else if (kneeAngle > _standingThreshold) {
-          _phase = SquatPhase.standing; // remonté sans aller en bas
-        }
-      case SquatPhase.bottom:
-        if (kneeAngle > _bottomThreshold + 15) {
-          _phase = SquatPhase.ascending;
-        }
-      case SquatPhase.ascending:
-        if (kneeAngle >= _standingThreshold) {
-          _phase = SquatPhase.standing;
-          _repCount++;
-        }
-    }
-
-    final advice = _getAdvice(kneeAngle, hipAngle, _phase);
-    final color = _getColor(kneeAngle, hipAngle, _phase);
-
-    return SquatFeedback(
-      repCount: _repCount,
-      phase: _phase,
-      kneeAngle: kneeAngle,
-      hipAngle: hipAngle,
-      advice: advice,
-      skeletonColor: color,
-    );
-  }
-
-  double _calcAngle(PoseLandmark a, PoseLandmark b, PoseLandmark c) {
-    final ab = Offset(a.x - b.x, a.y - b.y);
-    final cb = Offset(c.x - b.x, c.y - b.y);
-    final dot = ab.dx * cb.dx + ab.dy * cb.dy;
-    final cross = ab.dx * cb.dy - ab.dy * cb.dx;
-    return (atan2(cross.abs(), dot) * 180 / pi).abs();
-  }
-
-  String _getAdvice(double knee, double hip, SquatPhase phase) {
-    if (phase == SquatPhase.standing) return 'Prêt — fléchissez les genoux';
-    if (phase == SquatPhase.descending) {
-      if (knee > 130) return 'Continuez à descendre...';
-      if (hip < 70) return 'Gardez le dos droit !';
-      return 'Bonne descente, continuez';
-    }
-    if (phase == SquatPhase.bottom) {
-      if (knee > _goodSquatAngle + 15) return 'Descendez encore un peu';
-      if (hip < 60) return 'Attention au dos, gardez-le droit';
-      return '✓ Bonne profondeur !';
-    }
-    if (phase == SquatPhase.ascending) return 'Remontez en poussant sur les talons';
-    return '';
-  }
-
-  Color _getColor(double knee, double hip, SquatPhase phase) {
-    if (phase == SquatPhase.standing) return const Color(0xFF00E5FF); // cyan neutre
-    if (phase == SquatPhase.bottom) {
-      // Vert si bon angle, orange si trop haut
-      if (knee <= _goodSquatAngle + 15) return const Color(0xFF00E676); // vert
-      return const Color(0xFFFF9100); // orange
-    }
-    if (hip < 65) return const Color(0xFFFF5252); // rouge = dos penché
-    return const Color(0xFF00E5FF);
-  }
-
-  void reset() {
-    _repCount = 0;
-    _phase = SquatPhase.standing;
-  }
-}
+import 'exercise_analyzer.dart';
 
 // ---------------------------------------------------------------------------
 // CameraPage
@@ -147,20 +16,40 @@ class CameraPage extends StatefulWidget {
   State<CameraPage> createState() => _CameraPageState();
 }
 
-class _CameraPageState extends State<CameraPage> {
+class _CameraPageState extends State<CameraPage>
+    with SingleTickerProviderStateMixin {
+  // Camera & ML
   CameraController? _cameraController;
   PoseDetector? _poseDetector;
-  final SquatAnalyzer _squatAnalyzer = SquatAnalyzer();
   List<Pose> _poses = [];
-  SquatFeedback? _feedback;
   bool _isDetecting = false;
   bool _permissionGranted = false;
   bool _initialized = false;
   Size? _imageSize;
 
+  // Exercise selection
+  int _selectedIndex = 0;
+  late List<ExerciseAnalyzer> _analyzers;
+  ExerciseFeedback? _feedback;
+  final PageController _pageController = PageController(
+    viewportFraction: 0.38,
+    initialPage: 0,
+  );
+
+  // Animation
+  late AnimationController _switchAnim;
+  late Animation<double> _fadeAnim;
+
   @override
   void initState() {
     super.initState();
+    _analyzers = kExercises;
+    _switchAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnim = CurvedAnimation(parent: _switchAnim, curve: Curves.easeInOut);
+    _switchAnim.forward();
     _requestPermissionAndInit();
   }
 
@@ -231,9 +120,9 @@ class _CameraPageState extends State<CameraPage> {
 
     if (mounted) {
       final imageSize = Size(image.height.toDouble(), image.width.toDouble());
-      SquatFeedback? feedback;
+      ExerciseFeedback? feedback;
       if (poses.isNotEmpty) {
-        feedback = _squatAnalyzer.analyze(poses.first);
+        feedback = _analyzers[_selectedIndex].analyze(poses.first);
       }
       setState(() {
         _poses = poses;
@@ -243,11 +132,37 @@ class _CameraPageState extends State<CameraPage> {
     }
   }
 
+  void _onPageChanged(int index) {
+    if (index == _selectedIndex) return;
+    _analyzers[_selectedIndex].reset();
+    setState(() {
+      _selectedIndex = index;
+      _feedback = null;
+    });
+    _switchAnim.forward(from: 0);
+  }
+
+  void _selectExercise(int index) {
+    if (index == _selectedIndex) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _resetCurrentExercise() {
+    _analyzers[_selectedIndex].reset();
+    setState(() => _feedback = null);
+  }
+
   @override
   void dispose() {
     _cameraController?.stopImageStream();
     _cameraController?.dispose();
     _poseDetector?.close();
+    _pageController.dispose();
+    _switchAnim.dispose();
     super.dispose();
   }
 
@@ -255,100 +170,319 @@ class _CameraPageState extends State<CameraPage> {
   Widget build(BuildContext context) {
     if (!_permissionGranted) return _buildPermissionDenied();
     if (!_initialized || _cameraController == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF00E5FF)),
+              SizedBox(height: 16),
+              Text('Initialisation de la caméra...',
+                  style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      );
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        CameraPreview(_cameraController!),
+    final exercise = _analyzers[_selectedIndex];
 
-        // Skeleton overlay
-        if (_poses.isNotEmpty && _imageSize != null)
-          CustomPaint(
-            painter: PoseOverlayPainter(
-              poses: _poses,
-              imageSize: _imageSize!,
-              skeletonColor: _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Camera feed ──────────────────────────────────────────────────
+          CameraPreview(_cameraController!),
+
+          // ── Skeleton overlay ─────────────────────────────────────────────
+          if (_poses.isNotEmpty && _imageSize != null)
+            CustomPaint(
+              painter: PoseOverlayPainter(
+                poses: _poses,
+                imageSize: _imageSize!,
+                skeletonColor:
+                    _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
+              ),
             ),
-          ),
 
-        // Rep counter (top left)
-        Positioned(
-          top: 48,
-          left: 16,
-          child: _RepCounter(count: _feedback?.repCount ?? 0),
-        ),
-
-        // Angle display (top right)
-        if (_feedback != null && _feedback!.kneeAngle > 0)
+          // ── Dark gradient top ─────────────────────────────────────────────
           Positioned(
-            top: 48,
-            right: 16,
-            child: _AngleDisplay(
-              kneeAngle: _feedback!.kneeAngle,
-              hipAngle: _feedback!.hipAngle,
-            ),
-          ),
-
-        // Advice banner (bottom)
-        Positioned(
-          bottom: 32,
-          left: 16,
-          right: 16,
-          child: _AdviceBanner(
-            advice: _feedback?.advice ?? 'Positionnez-vous devant la caméra',
-            color: _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
-          ),
-        ),
-
-        // Reset button
-        Positioned(
-          top: 48,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: GestureDetector(
-              onTap: () {
-                _squatAnalyzer.reset();
-                setState(() => _feedback = null);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.black45,
-                  borderRadius: BorderRadius.circular(12),
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 160,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black87, Colors.transparent],
                 ),
-                child: const Text('Squat', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
           ),
-        ),
-      ],
+
+          // ── Dark gradient bottom ──────────────────────────────────────────
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 220,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black87, Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Top bar: exercise name + reset ───────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    // Exercise badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color:
+                              const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(exercise.emoji,
+                              style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 6),
+                          Text(
+                            exercise.name.replaceAll('\n', ' '),
+                            style: const TextStyle(
+                              color: Color(0xFF00E5FF),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    // Reset button
+                    GestureDetector(
+                      onTap: _resetCurrentExercise,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: const Icon(Icons.refresh_rounded,
+                            color: Colors.white70, size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // ── Rep counter + angles (top overlay) ──────────────────────────
+          Positioned(
+            top: 100,
+            left: 16,
+            child: _RepCounter(
+              count: _feedback?.repCount ?? 0,
+              isSeconds: _analyzers[_selectedIndex] is PlankAnalyzer,
+            ),
+          ),
+
+          if (_feedback != null && _feedback!.angles.isNotEmpty)
+            Positioned(
+              top: 100,
+              right: 16,
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: _AngleDisplay(angles: _feedback!.angles),
+              ),
+            ),
+
+          // ── Advice banner ────────────────────────────────────────────────
+          Positioned(
+            bottom: 130,
+            left: 16,
+            right: 16,
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: _AdviceBanner(
+                advice: _feedback?.advice ??
+                    'Positionnez-vous devant la caméra',
+                color: _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
+                phase: _feedback?.phase ?? '',
+              ),
+            ),
+          ),
+
+          // ── Exercise Slider ───────────────────────────────────────────────
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: _ExerciseSlider(
+              exercises: _analyzers,
+              selectedIndex: _selectedIndex,
+              pageController: _pageController,
+              onPageChanged: _onPageChanged,
+              onTap: _selectExercise,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildPermissionDenied() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          const Text('Accès caméra requis',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text(
-            'Veuillez autoriser l\'accès à la caméra\ndans les paramètres.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: openAppSettings,
-            child: const Text('Ouvrir les paramètres'),
-          ),
-        ],
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text('Accès caméra requis',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
+            const SizedBox(height: 8),
+            const Text(
+              'Veuillez autoriser l\'accès à la caméra\ndans les paramètres.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: openAppSettings,
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E5FF),
+                  foregroundColor: Colors.black),
+              child: const Text('Ouvrir les paramètres'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Exercise Slider Widget
+// ---------------------------------------------------------------------------
+
+class _ExerciseSlider extends StatelessWidget {
+  final List<ExerciseAnalyzer> exercises;
+  final int selectedIndex;
+  final PageController pageController;
+  final ValueChanged<int> onPageChanged;
+  final ValueChanged<int> onTap;
+
+  const _ExerciseSlider({
+    required this.exercises,
+    required this.selectedIndex,
+    required this.pageController,
+    required this.onPageChanged,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 100,
+      child: PageView.builder(
+        controller: pageController,
+        itemCount: exercises.length,
+        onPageChanged: onPageChanged,
+        itemBuilder: (context, index) {
+          final isSelected = index == selectedIndex;
+          final exercise = exercises[index];
+          return GestureDetector(
+            onTap: () => onTap(index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              margin: EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: isSelected ? 0 : 10,
+              ),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF00E5FF).withValues(alpha: 0.2)
+                    : Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF00E5FF)
+                      : Colors.white.withValues(alpha: 0.15),
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          spreadRadius: 1,
+                        )
+                      ]
+                    : [],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    exercise.emoji,
+                    style: TextStyle(
+                        fontSize: isSelected ? 28 : 22),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    exercise.name,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isSelected
+                          ? const Color(0xFF00E5FF)
+                          : Colors.white70,
+                      fontSize: isSelected ? 11 : 10,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -360,7 +494,8 @@ class _CameraPageState extends State<CameraPage> {
 
 class _RepCounter extends StatelessWidget {
   final int count;
-  const _RepCounter({required this.count});
+  final bool isSeconds;
+  const _RepCounter({required this.count, this.isSeconds = false});
 
   @override
   Widget build(BuildContext context) {
@@ -369,11 +504,24 @@ class _RepCounter extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black54,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
       ),
       child: Column(
         children: [
-          const Text('REPS', style: TextStyle(color: Colors.white70, fontSize: 11, letterSpacing: 1.5)),
-          Text('$count', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold, height: 1)),
+          Text(
+            isSeconds ? 'SEC' : 'REPS',
+            style: const TextStyle(
+                color: Colors.white54, fontSize: 10, letterSpacing: 2),
+          ),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 38,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
         ],
       ),
     );
@@ -381,9 +529,8 @@ class _RepCounter extends StatelessWidget {
 }
 
 class _AngleDisplay extends StatelessWidget {
-  final double kneeAngle;
-  final double hipAngle;
-  const _AngleDisplay({required this.kneeAngle, required this.hipAngle});
+  final Map<String, double> angles;
+  const _AngleDisplay({required this.angles});
 
   @override
   Widget build(BuildContext context) {
@@ -392,28 +539,32 @@ class _AngleDisplay extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black54,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          _angleLine('Genou', kneeAngle),
-          const SizedBox(height: 4),
-          _angleLine('Hanche', hipAngle),
-        ],
+        children: angles.entries
+            .map((e) => _angleLine(e.key, e.value))
+            .toList(),
       ),
     );
   }
 
   Widget _angleLine(String label, double angle) {
-    final color = label == 'Genou'
-        ? (angle < 100 ? const Color(0xFF00E676) : Colors.white)
-        : (angle < 70 ? const Color(0xFFFF5252) : Colors.white);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('$label ', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-        Text('${angle.toStringAsFixed(0)}°', style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$label ',
+              style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          Text('${angle.toStringAsFixed(0)}°',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 }
@@ -421,21 +572,42 @@ class _AngleDisplay extends StatelessWidget {
 class _AdviceBanner extends StatelessWidget {
   final String advice;
   final Color color;
-  const _AdviceBanner({required this.advice, required this.color});
+  final String phase;
+  const _AdviceBanner(
+      {required this.advice, required this.color, required this.phase});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.black54,
+        color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
       ),
-      child: Text(
-        advice,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w600),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              advice,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -488,18 +660,25 @@ class PoseOverlayPainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
+    final highlightPaint = Paint()
+      ..color = skeletonColor.withValues(alpha: 0.3)
+      ..style = PaintingStyle.fill;
+
     for (final pose in poses) {
       for (final connection in _skeletonConnections) {
         final start = pose.landmarks[connection[0]];
         final end = pose.landmarks[connection[1]];
         if (start == null || end == null) continue;
         if (start.likelihood < 0.5 || end.likelihood < 0.5) continue;
-        canvas.drawLine(_tp(start.x, start.y, size), _tp(end.x, end.y, size), linePaint);
+        canvas.drawLine(
+            _tp(start.x, start.y, size), _tp(end.x, end.y, size), linePaint);
       }
 
       for (final landmark in pose.landmarks.values) {
         if (landmark.likelihood < 0.5) continue;
-        canvas.drawCircle(_tp(landmark.x, landmark.y, size), 5, dotPaint);
+        final pt = _tp(landmark.x, landmark.y, size);
+        canvas.drawCircle(pt, 7, highlightPaint);
+        canvas.drawCircle(pt, 4, dotPaint);
       }
     }
   }
