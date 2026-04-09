@@ -24,14 +24,22 @@ class VaultConfig:
 
 class Settings(BaseSettings):
     # Database
-    PG_USER: str
-    PG_PASSWORD: str
-    PG_DB: str
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
 
     # JWT Configuration
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # Edamam Nutrition Analysis API
+    EDAMAM_APP_ID: str = ""
+    EDAMAM_APP_KEY: str = ""
+
+    # Edamam Meal Planner API
+    EDAMAM_MEAL_APP_ID: str = ""
+    EDAMAM_MEAL_APP_KEY: str = ""
 
     # Application
     DEBUG: bool = False

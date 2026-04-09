@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.security import decode_access_token
 from app.db.database import get_db
@@ -32,7 +32,12 @@ async def get_current_user(
     if email is None:
         raise credentials_exception
 
-    user = service.get_user_by_email(db, email=email)
+    user = (
+        db.query(User)
+        .options(selectinload(User.user_metrics))
+        .filter(User.email == email)
+        .first()
+    )
     if user is None:
         raise credentials_exception
 

@@ -1,24 +1,18 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import sqlalchemy.orm as sqlo
-from sqlalchemy import Column, ForeignKey, Integer, String, Table
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 
 from app.db.database import Base
-
-if TYPE_CHECKING:
-    from app.models.program import Program
 
 
 class Instruction(Base):
     __tablename__ = "instruction"
 
-    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, index=True)
-    description: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
-    exercise_id: sqlo.Mapped[int] = sqlo.mapped_column(
-        Integer, ForeignKey("exercise.id"), nullable=False
-    )
+    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, autoincrement=True)
+    exercise_id: sqlo.Mapped[str] = sqlo.mapped_column(String, ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False)
+    step_order: sqlo.Mapped[int] = sqlo.mapped_column(Integer, nullable=False)
+    text: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False)
 
     exercise: sqlo.Mapped[Exercise] = sqlo.relationship(back_populates="instructions")
 
@@ -26,47 +20,26 @@ class Instruction(Base):
 class SecondaryMuscle(Base):
     __tablename__ = "secondary_muscle"
 
-    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, index=True)
-    name: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
-    exercise_id: sqlo.Mapped[int] = sqlo.mapped_column(
-        Integer, ForeignKey("exercise.id"), nullable=False
-    )
+    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, autoincrement=True)
+    exercise_id: sqlo.Mapped[str] = sqlo.mapped_column(String, ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False)
+    name: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False)
 
-    exercise: sqlo.Mapped[Exercise] = sqlo.relationship(
-        back_populates="secondary_muscles"
-    )
+    exercise: sqlo.Mapped[Exercise] = sqlo.relationship(back_populates="secondary_muscles")
 
 
 class Exercise(Base):
     __tablename__ = "exercise"
 
-    id: sqlo.Mapped[int] = sqlo.mapped_column(Integer, primary_key=True, index=True)
-    title: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False)
-    description: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
+    id: sqlo.Mapped[str] = sqlo.mapped_column(String, primary_key=True)
+    name: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False)
+    body_part: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True, index=True)
     equipment: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
-    gif: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
-    body_part: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
-    target: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
+    gif_url: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
+    target: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True, index=True)
 
-    # Relationships
     instructions: sqlo.Mapped[list[Instruction]] = sqlo.relationship(
-        back_populates="exercise", cascade="all, delete-orphan"
+        back_populates="exercise", cascade="all, delete-orphan", order_by="Instruction.step_order"
     )
     secondary_muscles: sqlo.Mapped[list[SecondaryMuscle]] = sqlo.relationship(
         back_populates="exercise", cascade="all, delete-orphan"
     )
-    programs: sqlo.Mapped[list[Program]] = sqlo.relationship(
-        "Program",
-        secondary="program_exercise",
-        back_populates="exercises",
-    )
-
-
-# Defined after Exercise so that the 'exercice' table is already registered
-# in Base.metadata before the ForeignKey to it is resolved.
-program_exercise = Table(
-    "program_exercise",
-    Base.metadata,
-    Column("program_id", Integer, ForeignKey("program.id"), primary_key=True),
-    Column("exercise_id", Integer, ForeignKey("exercise.id"), primary_key=True),
-)

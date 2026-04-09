@@ -21,6 +21,7 @@ dependencies = [
     "pytest>=7.4.0",
     "faker>=24.0.0",
     "hvac>=2.4.0",
+    "httpx>=0.27.0",
 ]
 
 [tool.hatch.build.targets.wheel]
