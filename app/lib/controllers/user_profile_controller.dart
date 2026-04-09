@@ -24,6 +24,12 @@ class UserProfileController extends GetxController {
   final RxnInt age = RxnInt();
   final RxnString gender = RxnString();
 
+  /// Poids actuel (mis à jour par la balance), distinct du poids initial
+  final RxnDouble actualWeight = RxnDouble();
+
+  /// ID serveur (backend), nécessaire pour les appels API authentifiés
+  final RxnInt userId = RxnInt();
+
   static const _storageKey = 'user_profile_v1';
 
   @override
@@ -77,6 +83,65 @@ class UserProfileController extends GetxController {
     _saveToStorage();
   }
 
+  /// Peuple le contrôleur depuis la réponse de l'API (GET /auth/me)
+  void setFromApiResponse(Map<String, dynamic> apiUser) {
+    final id = apiUser['id'] as int? ?? 0;
+    final email = apiUser['email'] as String? ?? '';
+    final username = apiUser['username'] as String? ?? '';
+
+    userId.value = id;
+
+    // Champs profil depuis le backend
+    if (apiUser['gender'] != null) gender.value = apiUser['gender'] as String;
+    if (apiUser['sport_objective'] != null) primaryGoal.value = apiUser['sport_objective'] as String;
+    if (apiUser['target_weight'] != null) targetWeight.value = (apiUser['target_weight'] as num).toDouble();
+    if (apiUser['sessions_per_week'] != null) sessionsPerWeek.value = apiUser['sessions_per_week'] as int;
+
+    // Dernières métriques (poids, taille, âge)
+    final metricsList = apiUser['user_metrics'] as List<dynamic>? ?? [];
+    double? weight;
+    double? height;
+    if (metricsList.isNotEmpty) {
+      final latest = metricsList.last as Map<String, dynamic>;
+      weight = (latest['weight'] as num?)?.toDouble();
+      height = (latest['height'] as num?)?.toDouble();
+      if (latest['age'] != null) age.value = latest['age'] as int;
+      if (latest['actual_weight'] != null) {
+        actualWeight.value = (latest['actual_weight'] as num).toDouble();
+      }
+    }
+
+    // Mettre à jour le profil complet
+    profile.value = UserProfile(
+      id: id,
+      email: email,
+      firstName: profile.value?.firstName ?? username,
+      lastName: profile.value?.lastName ?? '',
+      weightKg: weight ?? profile.value?.weightKg,
+      heightCm: height ?? profile.value?.heightCm,
+      sportObjective: apiUser['sport_objective'] as String? ?? profile.value?.sportObjective,
+      avatarUrl: profile.value?.avatarUrl,
+      themeMode: profile.value?.themeMode ?? MyThemeMode.system,
+    );
+
+    _saveToStorage();
+  }
+
+  /// Réinitialise toutes les données (logout)
+  Future<void> clear() async {
+    profile.value = null;
+    primaryGoal.value = null;
+    targetWeight.value = null;
+    sessionsPerWeek.value = null;
+    age.value = null;
+    gender.value = null;
+    userId.value = null;
+    actualWeight.value = null;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_storageKey);
+  }
+
   Future<void> _saveToStorage() async {
     final prefs = await SharedPreferences.getInstance();
     final data = {
@@ -97,6 +162,8 @@ class UserProfileController extends GetxController {
       'sessionsPerWeek': sessionsPerWeek.value,
       'age': age.value,
       'gender': gender.value,
+      'userId': userId.value,
+      'actualWeight': actualWeight.value,
     };
 
     await prefs.setString(_storageKey, jsonEncode(data));
@@ -130,6 +197,8 @@ class UserProfileController extends GetxController {
       sessionsPerWeek.value = data['sessionsPerWeek'] as int?;
       age.value = data['age'] as int?;
       gender.value = data['gender'] as String?;
+      userId.value = data['userId'] as int?;
+      actualWeight.value = (data['actualWeight'] as num?)?.toDouble();
     } catch (_) {
       // En cas de données corrompues, on ignore simplement
     }

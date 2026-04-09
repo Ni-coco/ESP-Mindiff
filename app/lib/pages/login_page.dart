@@ -3,6 +3,9 @@ import 'package:get/get.dart';
 import 'package:mindiff_app/utils/theme.dart';
 import 'package:mindiff_app/pages/register_onboarding_page.dart';
 import 'package:mindiff_app/navigation_menu.dart';
+import 'package:mindiff_app/services/api_client.dart';
+import 'package:mindiff_app/services/auth_service.dart';
+import 'package:mindiff_app/controllers/user_profile_controller.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -44,20 +47,29 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+    if (!_formKey.currentState!.validate()) return;
 
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 1));
+    setState(() => _isLoading = true);
 
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Navigate to main app
+    try {
+      final authService = Get.find<AuthService>();
+      await authService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      final userData = await authService.getCurrentUser();
+      Get.find<UserProfileController>().setFromApiResponse(userData);
       Get.offAll(() => const NavigationMenu());
+    } on UnauthorizedException {
+      Get.snackbar('Erreur', 'Email ou mot de passe incorrect',
+          snackPosition: SnackPosition.BOTTOM);
+    } on ApiException catch (e) {
+      Get.snackbar('Erreur', e.message, snackPosition: SnackPosition.BOTTOM);
+    } catch (_) {
+      Get.snackbar('Erreur', 'Impossible de se connecter au serveur',
+          snackPosition: SnackPosition.BOTTOM);
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
