@@ -1,12 +1,23 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 
 class UserMetrics(BaseModel):
     weight: float
+    actual_weight: Optional[float] = None
     height: int
     age: int
+
+
+class UserMetricsResponse(BaseModel):
+    weight: float
+    actual_weight: Optional[float] = None
+    height: int
+    age: int
+
+    class Config:
+        from_attributes = True
 
 
 class UserBase(BaseModel):
@@ -23,6 +34,11 @@ class UserUpdate(UserBase):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     metrics: Optional[UserMetrics] = None
+    gender: Optional[str] = None
+    sport_objective: Optional[str] = None
+    target_weight: Optional[float] = None
+    sessions_per_week: Optional[int] = None
+    health_considerations: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -36,9 +52,33 @@ class UserResponse(UserBase):
     is_superuser: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+    gender: Optional[str] = None
+    sport_objective: Optional[str] = None
+    target_weight: Optional[float] = None
+    sessions_per_week: Optional[int] = None
+    health_considerations: Optional[str] = None
+    user_metrics: list[UserMetricsResponse] = []
 
     class Config:
         from_attributes = True
+
+
+class WeightLogEntry(BaseModel):
+    date: date
+    weight: float
+    source: str
+
+    class Config:
+        from_attributes = True
+
+
+class WeightHistoryResponse(BaseModel):
+    entries: list[WeightLogEntry]
+
+
+class AddWeightRequest(BaseModel):
+    weight: float
+    source: str = "manual"
 
 
 class Token(BaseModel):

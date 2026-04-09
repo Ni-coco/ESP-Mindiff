@@ -1,76 +1,49 @@
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
-class InstructionBase(BaseModel):
-    description: Optional[str] = None
-
-
-class InstructionCreate(InstructionBase):
-    pass
-
-
-class Instruction(InstructionBase):
+class InstructionOut(BaseModel):
     id: int
-    exercise_id: int
+    step_order: int
+    text: str
 
-    class Config:
-        from_attributes = True
-
-
-class SecondaryMuscleBase(BaseModel):
-    name: Optional[str] = None
+    model_config = {"from_attributes": True}
 
 
-class SecondaryMuscleCreate(SecondaryMuscleBase):
-    pass
-
-
-class SecondaryMuscle(SecondaryMuscleBase):
+class SecondaryMuscleOut(BaseModel):
     id: int
-    exercise_id: int
+    name: str
 
-    class Config:
-        from_attributes = True
-
-
-class ExerciseBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    equipment: Optional[str] = None
-    gif: Optional[str] = None
-    body_part: str
-    target: Optional[str] = None
+    model_config = {"from_attributes": True}
 
 
-class ExerciseResponse(ExerciseBase):
-    id: int
-
-
-class ExerciseCreate(ExerciseBase):
-    instructions: List[InstructionCreate] = []
-    secondary_muscles: List[SecondaryMuscleCreate] = []
-
-
-class ExerciseUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    equipment: Optional[str] = None
-    gif: Optional[str] = None
+class ExerciseOut(BaseModel):
+    id: str
+    name: str
     body_part: Optional[str] = None
+    equipment: Optional[str] = None
+    gif_url: Optional[str] = None
+    target: Optional[str] = None
+    instructions: List[InstructionOut] = []
+    secondary_muscles: List[SecondaryMuscleOut] = []
+
+    model_config = {"from_attributes": True}
+
+
+class ExerciseShort(BaseModel):
+    """Version allégée pour les listes et les workouts."""
+    id: str
+    name: str
+    body_part: Optional[str] = None
+    equipment: Optional[str] = None
+    gif_url: Optional[str] = None
     target: Optional[str] = None
 
-
-class Exercise(ExerciseBase):
-    id: int
-    instructions: List[Instruction] = []
-    secondary_muscles: List[SecondaryMuscle] = []
-
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
-class ExerciseFilter(BaseModel):
-    body_part: List[str] = None
-    equipment: List[str] = None
-    target: List[str] = None
+# Aliases pour compatibilité avec l'API existante
+Exercise = ExerciseOut
+ExerciseCreate = ExerciseOut
+ExerciseUpdate = ExerciseOut
+ExerciseFilter = ExerciseOut
