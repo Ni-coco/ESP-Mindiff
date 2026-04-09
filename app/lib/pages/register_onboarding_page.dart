@@ -8,6 +8,8 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:mindiff_app/widgets/dropdown_button.dart';
 import 'package:mindiff_app/pages/login_page.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
+import 'package:mindiff_app/services/api_client.dart';
+import 'package:mindiff_app/services/auth_service.dart';
 
 class RegisterOnboardingPage extends StatelessWidget {
   const RegisterOnboardingPage({super.key});
@@ -44,54 +46,59 @@ class RegisterOnboardingPage extends StatelessWidget {
 
   Widget _buildProgressIndicator(BuildContext context, RegisterOnboardingController controller) {
     final stepInfo = _getStepInfo(controller.currentStep.value);
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Title
+          // Bouton retour login (toujours accessible)
           Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              stepInfo['title']!,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: THelperFunctions.textColor(context),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Description
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              stepInfo['description']!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: THelperFunctions.isDarkMode(context)
+            alignment: Alignment.topRight,
+            child: IconButton(
+              onPressed: () => Get.off(() => const LoginPage()),
+              icon: const Icon(Icons.close),
+              tooltip: 'Retour à la connexion',
+              style: IconButton.styleFrom(
+                foregroundColor: THelperFunctions.isDarkMode(context)
                     ? Colors.grey[400]
                     : Colors.grey[600],
               ),
             ),
           ),
+          // Title
+          Text(
+            stepInfo['title']!,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: THelperFunctions.textColor(context),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Description
+          Text(
+            stepInfo['description']!,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: THelperFunctions.isDarkMode(context)
+                  ? Colors.grey[400]
+                  : Colors.grey[600],
+            ),
+          ),
           const SizedBox(height: 16),
           // Progress dots
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SmoothPageIndicator(
-              controller: controller.pageController,
-              count: controller.totalSteps,
-              effect: ExpandingDotsEffect(
-                activeDotColor: TColors.primary,
-                dotColor: THelperFunctions.isDarkMode(context)
-                    ? Colors.grey[700]!
-                    : Colors.grey[300]!,
-                dotHeight: 8,
-                dotWidth: 8,
-                spacing: 8,
-                expansionFactor: 3,
-              ),
+          SmoothPageIndicator(
+            controller: controller.pageController,
+            count: controller.totalSteps,
+            effect: ExpandingDotsEffect(
+              activeDotColor: TColors.primary,
+              dotColor: THelperFunctions.isDarkMode(context)
+                  ? Colors.grey[700]!
+                  : Colors.grey[300]!,
+              dotHeight: 8,
+              dotWidth: 8,
+              spacing: 8,
+              expansionFactor: 3,
             ),
           ),
         ],
@@ -156,19 +163,18 @@ class RegisterOnboardingPage extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Previous button (only show if not first step)
-            if (currentStep > 0)
-              _CircularArrowButton(
-                onPressed: () => controller.previousStep(),
-                icon: Icons.arrow_back,
-                size: 48.0,
-                backgroundColor: THelperFunctions.isDarkMode(context)
-                    ? Colors.grey[800]!
-                    : Colors.grey[200]!,
-                iconColor: THelperFunctions.textColor(context) ?? Colors.black,
-              )
-            else
-              const SizedBox(width: 48),
+            // Bouton gauche : retour étape précédente, ou retour login sur étape 0
+            _CircularArrowButton(
+              onPressed: currentStep > 0
+                  ? () => controller.previousStep()
+                  : () => Get.off(() => const LoginPage()),
+              icon: currentStep > 0 ? Icons.arrow_back : Icons.login,
+              size: 48.0,
+              backgroundColor: THelperFunctions.isDarkMode(context)
+                  ? Colors.grey[800]!
+                  : Colors.grey[200]!,
+              iconColor: THelperFunctions.textColor(context) ?? Colors.black,
+            ),
             
             // Next/Complete button
             if (currentStep == 4)
@@ -929,42 +935,100 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
       widget.controller.setHealthConsiderations(_healthController.text);
     });
 
-    // Register complete callback
-    widget.controller.registerCompleteCallback(_completeRegistration);
+    // Register complete callback (on lance l'async sans l'await ici)
+    widget.controller.registerCompleteCallback(() { _completeRegistration(); });
   }
 
-  void _completeRegistration() {
-    // Sauvegarder les données de l'onboarding dans le contrôleur global de profil
-    final userProfileController = Get.find<UserProfileController>();
+  Future<void> _completeRegistration() async {
     final c = widget.controller;
+    final authService = Get.find<AuthService>();
+    final userProfileController = Get.find<UserProfileController>();
 
-    userProfileController.setFromRegistration(
-      name: c.name ?? '',
-      email: c.email ?? '',
-      weight: c.weight,
-      height: c.height,
-      sportObjective: c.primaryGoal,
-      targetWeight: c.targetWeight,
-      sessionsPerWeek: c.sessionsPerWeek,
-      age: c.age,
-      gender: c.gender,
+    // Afficher un indicateur de chargement
+    Get.dialog(
+      const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
     );
 
-    Get.snackbar(
-      'Inscription réussie!',
-      'Votre compte a été créé avec succès',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: TColors.primary,
-      colorText: Colors.white,
-      margin: EdgeInsets.zero,
-      maxWidth: double.infinity,
-      borderRadius: 0,
-    );
-    // Navigate to main app after a delay
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      // 1. Créer le compte sur le backend
+      await authService.register(
+        email: c.email ?? '',
+        password: c.password ?? '',
+        name: c.name ?? '',
+      );
+
+      // 2. Auto-login pour obtenir le JWT
+      await authService.login(
+        email: c.email ?? '',
+        password: c.password ?? '',
+      );
+
+      // 3. Récupérer le profil serveur (id, username, email)
+      final userData = await authService.getCurrentUser();
+      userProfileController.setFromApiResponse(userData);
+
+      // 4. Envoyer le profil complet au backend
+      final userId = userProfileController.userId.value;
+      final email = userData['email'] as String? ?? '';
+      final username = userData['username'] as String? ?? '';
+      if (userId != null) {
+        await authService.updateUserProfile(
+          userId,
+          email: email,
+          username: username,
+          weight: c.weight,
+          height: c.height?.toInt(),
+          age: c.age,
+          gender: c.gender,
+          sportObjective: c.primaryGoal,
+          targetWeight: c.targetWeight,
+          sessionsPerWeek: c.sessionsPerWeek,
+          healthConsiderations: c.healthConsiderations,
+        );
+      }
+
+      // 5. Sauvegarder les données locales (genre, objectifs, etc.)
+      userProfileController.setFromRegistration(
+        name: c.name ?? '',
+        email: c.email ?? '',
+        weight: c.weight,
+        height: c.height,
+        sportObjective: c.primaryGoal,
+        targetWeight: c.targetWeight,
+        sessionsPerWeek: c.sessionsPerWeek,
+        age: c.age,
+        gender: c.gender,
+      );
+
+      // Fermer le loader
+      Get.back();
+
+      Get.snackbar(
+        'Inscription réussie !',
+        'Votre compte a été créé avec succès',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: TColors.primary,
+        colorText: Colors.white,
+      );
+
       Get.delete<RegisterOnboardingController>();
       Get.offAll(() => const NavigationMenu());
-    });
+
+    } on ApiException catch (e) {
+      Get.back(); // Fermer le loader
+      String message = e.message;
+      if (message.contains('Email already registered')) {
+        message = 'Cet email est déjà utilisé';
+      } else if (message.contains('Username already taken')) {
+        message = 'Ce nom d\'utilisateur est déjà pris';
+      }
+      Get.snackbar('Erreur', message, snackPosition: SnackPosition.BOTTOM);
+    } catch (_) {
+      Get.back(); // Fermer le loader
+      Get.snackbar('Erreur', 'Impossible de se connecter au serveur',
+          snackPosition: SnackPosition.BOTTOM);
+    }
   }
 
   @override

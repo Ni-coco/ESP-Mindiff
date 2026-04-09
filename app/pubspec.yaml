@@ -42,12 +42,14 @@ dependencies:
   dropdown_button2: ^2.3.8
   fl_chart: ^0.68.0
   health: ^13.3.0
+  http: ^1.2.0
   flutter_bloc: ^8.1.6
   postgres: ^3.0.0
   shared_preferences: ^2.3.2
   flutter_tts: ^4.2.0
   flutter_blue_plus: ^2.1.1
   permission_handler: ^12.0.1
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

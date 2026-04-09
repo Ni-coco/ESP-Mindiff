@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/pages/balance_page.dart';
+import 'package:mindiff_app/services/auth_service.dart';
 import 'package:mindiff_app/utils/theme.dart';
 
 
@@ -17,117 +18,174 @@ class MetricsPage extends StatefulWidget {
 }
 
 class _MetricsPageState extends State<MetricsPage> {
-  late final UserProfileController _userProfileController;
+  late final UserProfileController _ctrl;
+  List<WeightData> _rawHistory = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _userProfileController = Get.find<UserProfileController>();
+    _ctrl = Get.find<UserProfileController>();
+    _loadHistory();
   }
 
-  // Valeurs par défaut si le profil n'est pas initialisé
-  double get _fallbackCurrentWeight => 81.2;
-  double get _fallbackHeightCm => 175.0;
-  double get _fallbackTargetWeight => 75.0;
-
-  double get currentWeight =>
-      _userProfileController.profile.value?.weightKg ?? _fallbackCurrentWeight;
-
-  double get height =>
-      _userProfileController.profile.value?.heightCm ?? _fallbackHeightCm;
-
-  double get targetWeight =>
-      _userProfileController.targetWeight.value ?? _fallbackTargetWeight;
-
-  double get weight30DaysAgo {
-    // Simulé tant qu'on n'a pas d'historique réel : proche du poids actuel
-    final delta = (currentWeight - targetWeight).abs().clamp(0.3, 2.5);
-    return currentWeight + (currentWeight > targetWeight ? delta : -delta);
+  Future<void> _showManualWeightDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    final isDark = THelperFunctions.isDarkMode(context);
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Saisie manuelle du poids',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: THelperFunctions.textColor(context),
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Ex : 75.5',
+            suffixText: 'kg',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: TColors.primary),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Annuler', style: TextStyle(color: Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final val = double.tryParse(controller.text.replaceAll(',', '.'));
+              if (val == null || val <= 0) return;
+              Navigator.pop(ctx);
+              final userId = _ctrl.userId.value;
+              if (userId == null) return;
+              try {
+                await Get.find<AuthService>().addWeight(userId, val, source: 'manual');
+                await _loadHistory();
+              } catch (e) {
+                debugPrint('MANUAL WEIGHT ERROR: $e');
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
   }
-  
-  // Données pour le graphique (6 derniers mois avec 2-3 entrées par mois)
-  List<WeightData> get weightHistory => [
-    // Mois 6 (il y a 6 mois)
-    WeightData(DateTime.now().subtract(const Duration(days: 180)), 85.0),
-    WeightData(DateTime.now().subtract(const Duration(days: 165)), 84.7),
-    WeightData(DateTime.now().subtract(const Duration(days: 150)), 84.3),
-    // Mois 5
-    WeightData(DateTime.now().subtract(const Duration(days: 135)), 84.0),
-    WeightData(DateTime.now().subtract(const Duration(days: 120)), 83.5),
-    WeightData(DateTime.now().subtract(const Duration(days: 105)), 83.2),
-    // Mois 4
-    WeightData(DateTime.now().subtract(const Duration(days: 90)), 82.8),
-    WeightData(DateTime.now().subtract(const Duration(days: 75)), 82.5),
-    WeightData(DateTime.now().subtract(const Duration(days: 60)), 82.2),
-    // Mois 3
-    WeightData(DateTime.now().subtract(const Duration(days: 45)), 82.8),
-    WeightData(DateTime.now().subtract(const Duration(days: 30)), 82.7),
-    WeightData(DateTime.now().subtract(const Duration(days: 15)), 82.0),
-    // Mois actuel (poids du profil si dispo)
-    WeightData(DateTime.now(), currentWeight),
-  ];
 
-  double get weightVariation {
-    final variation = currentWeight - weight30DaysAgo;
-    final percentage = (variation / weight30DaysAgo) * 100;
-    return percentage;
+  Future<void> _loadHistory() async {
+    final userId = _ctrl.userId.value;
+    debugPrint('METRICS userId = $userId');
+    if (userId == null) { setState(() => _isLoading = false); return; }
+    try {
+      final entries = await Get.find<AuthService>().getWeightHistory(userId);
+      setState(() {
+        _rawHistory = entries.map((e) => WeightData(
+          DateTime.parse(e['date'] as String),
+          (e['weight'] as num).toDouble(),
+          e['source'] as String,
+        )).toList();
+      });
+    } catch (e, st) {
+      debugPrint('METRICS ERROR: $e\n$st');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
+
+  // Toujours vue journalière, limitée aux 4 dernières semaines (28 jours)
+  // Si l'historique est plus court que 28 jours, on prend tout depuis le début
+  List<WeightData> get weightHistory {
+    if (_rawHistory.isEmpty) return [];
+    if (_rawHistory.length <= 28) return _rawHistory;
+    return _rawHistory.sublist(_rawHistory.length - 28);
+  }
+
+  double get _fallbackWeight => 80.0;
+  double get _fallbackHeight => 175.0;
+  double get _fallbackTarget => 75.0;
+
+  double get startWeight => _ctrl.profile.value?.weightKg ?? _fallbackWeight;
+  double get currentWeight {
+    final reals = _rawHistory.where((e) => e.source != 'carried_forward');
+    if (reals.isNotEmpty) return reals.last.weight;
+    return _ctrl.actualWeight.value ?? startWeight;
+  }
+  double get height => _ctrl.profile.value?.heightCm ?? _fallbackHeight;
+  double get targetWeight => _ctrl.targetWeight.value ?? _fallbackTarget;
+  String? get primaryGoal => _ctrl.primaryGoal.value;
+
+  // Variation vs il y a 30 jours (depuis les données réelles)
+  double get _weight30dAgo {
+    if (_rawHistory.isEmpty) return currentWeight;
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    final before = _rawHistory.where((e) => e.date.isBefore(cutoff)).toList();
+    return before.isNotEmpty ? before.last.weight : _rawHistory.first.weight;
+  }
+
+  double get weightVariation =>
+      _rawHistory.isEmpty ? 0 : (currentWeight - _weight30dAgo) / _weight30dAgo * 100;
 
   String get variationText {
-    final variation = weightVariation;
-    if (variation > 0) {
-      return '+${variation.toStringAsFixed(1)}%';
-    } else if (variation < 0) {
-      return variation.toStringAsFixed(1) + '%';
-    } else {
-      return '0.0%';
-    }
+    if (weightVariation > 0) return '+${weightVariation.toStringAsFixed(1)}%';
+    if (weightVariation < 0) return '${weightVariation.toStringAsFixed(1)}%';
+    return '0.0%';
   }
 
   Color get variationColor {
-    if (weightVariation < 0) {
-      return Colors.green; // Perte de poids
-    } else if (weightVariation > 0) {
-      return Colors.red; // Gain de poids
-    } else {
-      return Colors.grey;
-    }
+    if (weightVariation < 0) return Colors.green;
+    if (weightVariation > 0) return Colors.red;
+    return Colors.grey;
   }
 
-  // Calcul de l'IMC actuel
   double get currentBMI {
-    final heightInMeters = height / 100;
-    return currentWeight / (heightInMeters * heightInMeters);
+    final hm = height / 100;
+    return currentWeight / (hm * hm);
   }
 
-  // Poids moyen sur la période
   double get averageWeight {
-    final sum = weightHistory.map((e) => e.weight).reduce((a, b) => a + b);
-    return sum / weightHistory.length;
+    if (weightHistory.isEmpty) return currentWeight;
+    return weightHistory.map((e) => e.weight).reduce((a, b) => a + b) / weightHistory.length;
   }
 
-  // Progression vers l'objectif (en pourcentage)
   double get goalProgress {
-    // Poids initial (le plus ancien dans l'historique)
-    final initialWeight = weightHistory.first.weight;
-    final totalToLose = initialWeight - targetWeight;
-    final currentProgress = initialWeight - currentWeight;
-    
-    if (totalToLose == 0) return 100.0;
-    final progress = (currentProgress / totalToLose) * 100;
-    return progress.clamp(0.0, 100.0);
+    final goal = primaryGoal;
+    if (goal == 'lose_weight' || goal == 'maintain') {
+      final total = startWeight - targetWeight;
+      if (total <= 0) return currentWeight <= targetWeight ? 100.0 : 0.0;
+      return ((startWeight - currentWeight) / total * 100).clamp(0.0, 100.0);
+    }
+    if (goal == 'build_muscle' || goal == 'increase_strength' ||
+        goal == 'improve_endurance' || goal == 'general_fitness') {
+      final total = targetWeight - startWeight;
+      if (total <= 0) return currentWeight >= targetWeight ? 100.0 : 0.0;
+      return ((currentWeight - startWeight) / total * 100).clamp(0.0, 100.0);
+    }
+    return 0.0;
   }
 
-  // Données IMC pour le graphique
-  List<BMIData> get bmiHistory {
-    return weightHistory.map((data) {
-      final heightInMeters = height / 100;
-      final bmi = data.weight / (heightInMeters * heightInMeters);
-      return BMIData(data.date, bmi);
-    }).toList();
-  }
+  List<BMIData> get bmiHistory => weightHistory.map((d) {
+    final hm = height / 100;
+    return BMIData(d.date, d.weight / (hm * hm));
+  }).toList();
 
-  // Statut IMC avec couleur
   String get bmiStatus {
     if (currentBMI < 18.5) return 'Insuffisance';
     if (currentBMI < 25) return 'Normal';
@@ -145,10 +203,14 @@ class _MetricsPageState extends State<MetricsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = THelperFunctions.isDarkMode(context);
+
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Obx(() {
-      // Rebuild si le profil change (poids/taille/objectif)
-      final _ = _userProfileController.profile.value;
-      _userProfileController.targetWeight.value;
+      final _ = _ctrl.profile.value;
+      _ctrl.targetWeight.value;
 
       return Scaffold(
         backgroundColor: isDark ? TColors.darkBackground : Colors.white,
@@ -189,11 +251,11 @@ class _MetricsPageState extends State<MetricsPage> {
             ),
             const SizedBox(height: 6),
             
-            // Texte "30 derniers jours" avec variation
+            // Label période + variation
             Row(
               children: [
                 Text(
-                  '30 derniers jours',
+                  '4 dernières semaines',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: THelperFunctions.isDarkMode(context)
                         ? Colors.grey[400]
@@ -234,9 +296,14 @@ class _MetricsPageState extends State<MetricsPage> {
             Container(
               height: 250,
               padding: const EdgeInsets.all(16),
-              child: LineChart(
-                _buildLineChartData(),
-              ),
+              child: weightHistory.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Aucune donnée de poids',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                      ),
+                    )
+                  : LineChart(_buildLineChartData()),
             ),
             const SizedBox(height: 24),
             
@@ -323,6 +390,7 @@ class _MetricsPageState extends State<MetricsPage> {
                   ),
                   const SizedBox(width: 12),
                   // Poids moyen Card
+
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
@@ -374,16 +442,31 @@ class _MetricsPageState extends State<MetricsPage> {
                                 fontSize: 24,
                               ),
                             ),
-                            // Bouton Balance
-                            ElevatedButton.icon(
-                              onPressed: () => Get.to(() => const BalancePage()),
-                              icon: const Icon(Iconsax.bluetooth),
-                              label: const Text('Peser avec la balance'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: TColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
+                            // Boutons poids
+                            Row(
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () => _showManualWeightDialog(context),
+                                  icon: const Icon(Iconsax.edit, size: 16),
+                                  label: const Text('Manuel'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: TColors.primary,
+                                    side: BorderSide(color: TColors.primary),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton.icon(
+                                  onPressed: () => Get.to(() => const BalancePage()),
+                                  icon: const Icon(Iconsax.bluetooth, size: 16),
+                                  label: const Text('Balance'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: TColors.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -393,8 +476,29 @@ class _MetricsPageState extends State<MetricsPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            
+            // Disclaimer IMC
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, size: 13, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      "L'IMC est un indicateur statistique general. Il ne tient pas compte de la masse musculaire, de la morphologie ni de la composition corporelle. À utiliser avec recul.",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Objectif de poids avec progression - Card
             Container(
               decoration: BoxDecoration(
@@ -462,7 +566,7 @@ class _MetricsPageState extends State<MetricsPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${currentWeight.toStringAsFixed(1)} kg',
+                          'Départ : ${startWeight.toStringAsFixed(1)} kg',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: THelperFunctions.isDarkMode(context)
                                 ? Colors.grey[400]
@@ -471,7 +575,7 @@ class _MetricsPageState extends State<MetricsPage> {
                           ),
                         ),
                         Text(
-                          '${targetWeight.toStringAsFixed(1)} kg',
+                          'Objectif : ${targetWeight.toStringAsFixed(1)} kg',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: THelperFunctions.isDarkMode(context)
                                 ? Colors.grey[400]
@@ -510,9 +614,14 @@ class _MetricsPageState extends State<MetricsPage> {
             Container(
               height: 250,
               padding: const EdgeInsets.all(16),
-              child: LineChart(
-                _buildBMILineChartData(),
-              ),
+              child: bmiHistory.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Aucune donnée IMC',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                      ),
+                    )
+                  : LineChart(_buildBMILineChartData()),
             ),
             ],
           ),
@@ -530,6 +639,16 @@ class _MetricsPageState extends State<MetricsPage> {
     final maxY = maxWeight + (range * 0.1);
 
     return LineChartData(
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipItems: (touchedSpots) => touchedSpots.map((spot) =>
+            LineTooltipItem(
+              '${spot.y.toStringAsFixed(1)} kg',
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ).toList(),
+        ),
+      ),
       gridData: const FlGridData(
         show: false,
       ),
@@ -545,131 +664,127 @@ class _MetricsPageState extends State<MetricsPage> {
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 30,
-            interval: 3, // Afficher un label tous les 3 points (environ 1 par mois)
+            interval: 7, // Un label par semaine
             getTitlesWidget: (value, meta) {
               final index = value.toInt();
-              if (index >= 0 && index < weightHistory.length) {
-                final date = weightHistory[index].date;
-                final monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 
-                                   'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-                final month = monthNames[date.month - 1];
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    month,
-                    style: TextStyle(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      fontSize: 10,
-                    ),
-                  ),
-                );
-              }
-              return const Text('');
+              if (index < 0 || index >= weightHistory.length) return const Text('');
+              final date = weightHistory[index].date;
+              return Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text('${date.day}/${date.month}', style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 10,
+                )),
+              );
             },
           ),
         ),
-        leftTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
+        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
-      borderData: FlBorderData(
-        show: false,
-      ),
+      borderData: FlBorderData(show: false),
       minX: 0,
       maxX: (weightHistory.length - 1).toDouble(),
       minY: minY,
       maxY: maxY,
       lineBarsData: [
         LineChartBarData(
-          spots: weightHistory.asMap().entries.map((entry) {
-            return FlSpot(entry.key.toDouble(), entry.value.weight);
-          }).toList(),
+          spots: weightHistory.asMap().entries.map((e) =>
+            FlSpot(e.key.toDouble(), e.value.weight)).toList(),
           isCurved: true,
           color: TColors.primary,
           barWidth: 3,
           isStrokeCapRound: true,
-          dotData: const FlDotData(show: true),
-          belowBarData: BarAreaData(
+          dotData: FlDotData(
             show: true,
-            color: TColors.primary.withOpacity(0.1),
+            getDotPainter: (spot, percent, bar, index) {
+              final isReal = weightHistory[index].source != 'carried_forward';
+              return FlDotCirclePainter(
+                radius: isReal ? 4 : 2,
+                color: isReal ? TColors.primary : TColors.primary.withOpacity(0.3),
+                strokeWidth: 0,
+                strokeColor: Colors.transparent,
+              );
+            },
           ),
+          belowBarData: BarAreaData(show: true, color: TColors.primary.withOpacity(0.1)),
         ),
       ],
     );
   }
 
   LineChartData _buildBMILineChartData() {
+    if (bmiHistory.isEmpty) return LineChartData();
     final isDark = THelperFunctions.isDarkMode(context);
     final minBMI = bmiHistory.map((e) => e.bmi).reduce((a, b) => a < b ? a : b);
     final maxBMI = bmiHistory.map((e) => e.bmi).reduce((a, b) => a > b ? a : b);
-    final range = maxBMI - minBMI;
-    final minY = minBMI - (range * 0.1);
-    final maxY = maxBMI + (range * 0.1);
+    final range = (maxBMI - minBMI).clamp(0.5, double.infinity);
+    final minY = minBMI - range * 0.1;
+    final maxY = maxBMI + range * 0.1;
 
     return LineChartData(
-      gridData: const FlGridData(
-        show: false,
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
+            final bmiVal = spot.y;
+            final String status;
+            if (bmiVal < 18.5) status = 'Insuffisance';
+            else if (bmiVal < 25) status = 'Normal';
+            else if (bmiVal < 30) status = 'Surpoids';
+            else status = 'Obésité';
+            return LineTooltipItem(
+              'IMC ${bmiVal.toStringAsFixed(1)}\n',
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+              children: [
+                TextSpan(
+                  text: status,
+                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ),
+      gridData: const FlGridData(show: false),
       titlesData: FlTitlesData(
         show: true,
-        rightTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        topTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 30,
-            interval: 3,
+            interval: 7,
             getTitlesWidget: (value, meta) {
               final index = value.toInt();
-              if (index >= 0 && index < bmiHistory.length) {
-                final date = bmiHistory[index].date;
-                final monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 
-                                   'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-                final month = monthNames[date.month - 1];
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    month,
-                    style: TextStyle(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      fontSize: 10,
-                    ),
-                  ),
-                );
-              }
-              return const Text('');
+              if (index < 0 || index >= bmiHistory.length) return const Text('');
+              final date = bmiHistory[index].date;
+              return Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text('${date.day}/${date.month}', style: TextStyle(
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  fontSize: 10,
+                )),
+              );
             },
           ),
         ),
-        leftTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
+        leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
-      borderData: FlBorderData(
-        show: false,
-      ),
+      borderData: FlBorderData(show: false),
       minX: 0,
       maxX: (bmiHistory.length - 1).toDouble(),
       minY: minY,
       maxY: maxY,
       lineBarsData: [
         LineChartBarData(
-          spots: bmiHistory.asMap().entries.map((entry) {
-            return FlSpot(entry.key.toDouble(), double.parse(entry.value.bmi.toStringAsFixed(1)));
-          }).toList(),
+          spots: bmiHistory.asMap().entries.map((e) =>
+            FlSpot(e.key.toDouble(), double.parse(e.value.bmi.toStringAsFixed(2)))).toList(),
           isCurved: true,
           color: TColors.primary,
           barWidth: 3,
           isStrokeCapRound: true,
-          dotData: const FlDotData(show: true),
-          belowBarData: BarAreaData(
-            show: true,
-            color: TColors.primary.withOpacity(0.1),
-          ),
+          dotData: const FlDotData(show: false),
+          belowBarData: BarAreaData(show: true, color: TColors.primary.withOpacity(0.1)),
         ),
       ],
     );
@@ -679,8 +794,9 @@ class _MetricsPageState extends State<MetricsPage> {
 class WeightData {
   final DateTime date;
   final double weight;
+  final String source;
 
-  WeightData(this.date, this.weight);
+  WeightData(this.date, this.weight, [this.source = 'manual']);
 }
 
 class BMIData {

@@ -1,9 +1,48 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:mindiff_app/controllers/user_profile_controller.dart';
+import 'package:mindiff_app/services/auth_service.dart';
 import 'package:mindiff_app/utils/theme.dart';
+
+// ─── Modèles locaux ───────────────────────────────────────────────────────────
+
+class MealEntry {
+  final int id;
+  final String mealType;
+  final String description;
+  final double calories;
+  final double proteinG;
+  final double fatG;
+  final double carbsG;
+  final double fiberG;
+
+  MealEntry({
+    required this.id,
+    required this.mealType,
+    required this.description,
+    required this.calories,
+    required this.proteinG,
+    required this.fatG,
+    required this.carbsG,
+    required this.fiberG,
+  });
+
+  factory MealEntry.fromJson(Map<String, dynamic> j) => MealEntry(
+        id: j['id'] as int,
+        mealType: j['meal_type'] as String,
+        description: j['description'] as String,
+        calories: (j['calories'] as num).toDouble(),
+        proteinG: (j['protein_g'] as num).toDouble(),
+        fatG: (j['fat_g'] as num).toDouble(),
+        carbsG: (j['carbs_g'] as num).toDouble(),
+        fiberG: (j['fiber_g'] as num).toDouble(),
+      );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 class NutritionPage extends StatefulWidget {
   const NutritionPage({super.key});
@@ -13,1127 +52,1126 @@ class NutritionPage extends StatefulWidget {
 }
 
 class _NutritionPageState extends State<NutritionPage> {
-  // Données de nutrition simulées
-  final double calorieObjectif = 2000.0; // Objectif quotidien en kcal
-  final double caloriesConsommees = 1450.0; // Calories consommées aujourd'hui
-  
-  // Macronutriments (en grammes)
-  final double proteinesConsommees = 120.0;
-  final double proteinesObjectif = 150.0;
-  final double glucidesConsommes = 180.0;
-  final double glucidesObjectif = 250.0;
-  final double lipidesConsommes = 45.0;
-  final double lipidesObjectif = 65.0;
+  final _ctrl = Get.find<UserProfileController>();
+  final _auth = Get.find<AuthService>();
 
-  // Repas de la journée
-  final List<Repas> repas = [
-    Repas(
-      id: 1,
-      nom: 'Petit-déjeuner complet',
-      type: TypeRepas.petitDejeuner,
-      calories: 450,
-      proteines: 25,
-      glucides: 60,
-      lipides: 15,
-      heure: '08:30',
-      aliments: [
-        'Œufs brouillés (2)',
-        'Pain complet (2 tranches)',
-        'Avocat (1/2)',
-        'Café',
-      ],
-    ),
-    Repas(
-      id: 2,
-      nom: 'Salade de poulet',
-      type: TypeRepas.dejeuner,
-      calories: 550,
-      proteines: 45,
-      glucides: 50,
-      lipides: 20,
-      heure: '13:15',
-      aliments: [
-        'Poulet grillé (150g)',
-        'Salade verte',
-        'Tomates cerises',
-        'Vinaigrette légère',
-        'Quinoa (80g)',
-      ],
-    ),
-    Repas(
-      id: 3,
-      nom: 'Yaourt et fruits',
-      type: TypeRepas.collation,
-      calories: 200,
-      proteines: 15,
-      glucides: 30,
-      lipides: 5,
-      heure: '16:00',
-      aliments: [
-        'Yaourt grec (150g)',
-        'Myrtilles (100g)',
-        'Miel (1 cuillère)',
-      ],
-    ),
-    Repas(
-      id: 4,
-      nom: 'Saumon et légumes',
-      type: TypeRepas.diner,
-      calories: 250,
-      proteines: 35,
-      glucides: 40,
-      lipides: 5,
-      heure: '20:00',
-      aliments: [
-        'Saumon (120g)',
-        'Brocolis vapeur',
-        'Riz complet (60g)',
-      ],
-    ),
-  ];
+  List<MealEntry> _meals = [];
+  bool _isLoading = true;
 
-  double get caloriesRestantes => calorieObjectif - caloriesConsommees;
-  
-  Color get caloriesRestantesColor {
-    final pourcentage = (caloriesConsommees / calorieObjectif) * 100;
-    if (pourcentage < 70) return Colors.green;
-    if (pourcentage < 90) return Colors.orange;
-    return Colors.red;
-  }
+  // Totaux du jour
+  double _totalCalories = 0;
+  double _totalProtein = 0;
+  double _totalFat = 0;
+  double _totalCarbs = 0;
+  double _totalFiber = 0;
 
-  List<Repas> getRepasParType(TypeRepas type) {
-    return repas.where((r) => r.type == type).toList();
-  }
+  static const _mealTypes = ['breakfast', 'lunch', 'dinner', 'snack'];
+  static const _mealLabels = {
+    'breakfast': 'Petit-déjeuner',
+    'lunch': 'Déjeuner',
+    'dinner': 'Dîner',
+    'snack': 'Collation',
+  };
+  static const _mealIcons = {
+    'breakfast': Iconsax.coffee,
+    'lunch': Iconsax.sun_1,
+    'dinner': Iconsax.moon,
+    'snack': Iconsax.cup,
+  };
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = THelperFunctions.isDarkMode(context);
-    final now = DateTime.now();
-    final dateFormat = '${now.day}/${now.month}/${now.year}';
-    final joursSemaine = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    final jourSemaine = joursSemaine[now.weekday - 1];
-    
-    return Scaffold(
-      backgroundColor: isDark ? TColors.darkBackground : Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // En-tête avec titre et date
-            Row(
-              children: [
-                Icon(
-                  Iconsax.health,
-                  color: TColors.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Nutrition',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: THelperFunctions.textColor(context),
-                    fontSize: 22,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$jourSemaine $dateFormat',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Barre de progression principale - Calories
-            _buildCaloriesProgressCard(context, isDark),
-            const SizedBox(height: 16),
-            
-            // Indicateur de calories restantes
-            _buildCaloriesRestantesCard(context, isDark),
-            const SizedBox(height: 16),
-            
-            // Répartition des macronutriments
-            _buildMacrosCard(context, isDark),
-            const SizedBox(height: 24),
-            
-            // Sections de repas
-            _buildRepasSection(
-              context,
-              isDark,
-              'Petit-déjeuner',
-              Iconsax.coffee,
-              TypeRepas.petitDejeuner,
-            ),
-            const SizedBox(height: 16),
-            _buildRepasSection(
-              context,
-              isDark,
-              'Déjeuner',
-              Iconsax.sun_1,
-              TypeRepas.dejeuner,
-            ),
-            const SizedBox(height: 16),
-            _buildRepasSection(
-              context,
-              isDark,
-              'Dîner',
-              Iconsax.moon,
-              TypeRepas.diner,
-            ),
-            const SizedBox(height: 16),
-            _buildRepasSection(
-              context,
-              isDark,
-              'Collations',
-              Iconsax.cake,
-              TypeRepas.collation,
-            ),
-            const SizedBox(height: 16),
-            
-            // Statistiques rapides
-            _buildStatsCard(context, isDark),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 8.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // TODO: Implémenter l'ajout de repas
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Ajouter un repas (à implémenter)'),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Ajouter un repas',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  void initState() {
+    super.initState();
+    _loadMeals();
   }
 
-  Widget _buildCaloriesProgressCard(BuildContext context, bool isDark) {
-    final pourcentage = (caloriesConsommees / calorieObjectif).clamp(0.0, 1.0);
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Calories',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${caloriesConsommees.toInt()} / ${calorieObjectif.toInt()} kcal',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: THelperFunctions.textColor(context),
-                        fontSize: 20,
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: caloriesRestantesColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${(pourcentage * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      color: caloriesRestantesColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: pourcentage,
-                minHeight: 8,
-                backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(caloriesRestantesColor),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _loadMeals() async {
+    final userId = _ctrl.userId.value;
+    if (userId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    try {
+      final data = await _auth.getMeals(userId);
+      final list = (data['meals'] as List)
+          .map((e) => MealEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+      setState(() {
+        _meals = list;
+        _totalCalories = (data['total_calories'] as num).toDouble();
+        _totalProtein = (data['total_protein_g'] as num).toDouble();
+        _totalFat = (data['total_fat_g'] as num).toDouble();
+        _totalCarbs = (data['total_carbs_g'] as num).toDouble();
+        _totalFiber = (data['total_fiber_g'] as num).toDouble();
+      });
+    } catch (e) {
+      debugPrint('NUTRITION ERROR: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  Widget _buildCaloriesRestantesCard(BuildContext context, bool isDark) {
-    final restantes = caloriesRestantes;
-    final isNegatif = restantes < 0;
-    
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
+  List<MealEntry> _mealsOf(String type) =>
+      _meals.where((m) => m.mealType == type).toList();
+
+  /// Mifflin-St Jeor + multiplicateur d'activité + ajustement objectif poids
+  double get _maintenanceCalories {
+    final weight = _ctrl.profile.value?.weightKg;
+    final height = _ctrl.profile.value?.heightCm;
+    final age = _ctrl.age.value;
+    final gender = _ctrl.gender.value;
+    if (weight == null || height == null || age == null) return 2000;
+
+    final bmr = (10 * weight) + (6.25 * height) - (5 * age) +
+        (gender == 'female' ? -161 : 5);
+
+    final sessions = _ctrl.sessionsPerWeek.value ?? 0;
+    final double multiplier;
+    if (sessions <= 1) multiplier = 1.2;
+    else if (sessions <= 3) multiplier = 1.375;
+    else if (sessions <= 5) multiplier = 1.55;
+    else multiplier = 1.725;
+
+    final tdee = bmr * multiplier;
+
+    final targetWeight = _ctrl.targetWeight.value;
+    if (targetWeight == null) return tdee;
+    if (targetWeight < weight) return tdee - 500;
+    if (targetWeight > weight) return tdee + 300;
+    return tdee;
+  }
+
+  Future<void> _openAddSheet(String mealType) async {
+    final controller = TextEditingController();
+    bool isAnalyzing = false;
+    Map<String, dynamic>? preview;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final isDark = THelperFunctions.isDarkMode(context);
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
               decoration: BoxDecoration(
-                color: (isNegatif ? Colors.red : Colors.green).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: isDark ? TColors.darkBackground : Colors.white,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              child: Icon(
-                isNegatif ? Iconsax.arrow_up_2 : Iconsax.arrow_down_2,
-                color: isNegatif ? Colors.red : Colors.green,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    isNegatif ? 'Dépassement' : 'Calories restantes',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      fontSize: 12,
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[400],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 16),
                   Text(
-                    '${isNegatif ? '+' : ''}${restantes.abs().toInt()} kcal',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isNegatif ? Colors.red : Colors.green,
-                      fontSize: 18,
+                    'Ajouter — ${_mealLabels[mealType]}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: THelperFunctions.textColor(context),
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Une ligne = un aliment (ex: 200g de riz, 1 pomme)',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    maxLines: 5,
+                    style: TextStyle(
+                        color: THelperFunctions.textColor(context),
+                        fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText:
+                          '200g de riz\n150g de poulet grillé\n1 cuillère d\'huile d\'olive',
+                      hintStyle: TextStyle(
+                          color:
+                              isDark ? Colors.grey[600] : Colors.grey[400],
+                          fontSize: 13),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                            color: Colors.grey.withOpacity(0.3), width: 1),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                            color: Colors.grey.withOpacity(0.2), width: 1),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: TColors.primary, width: 1.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isAnalyzing
+                          ? null
+                          : () async {
+                              if (controller.text.trim().isEmpty) return;
+                              setSheetState(() => isAnalyzing = true);
+                              try {
+                                final userId = _ctrl.userId.value!;
+                                final result = await _auth.addMeal(
+                                  userId,
+                                  mealType: mealType,
+                                  description: controller.text.trim(),
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                await _loadMeals();
+                              } catch (e) {
+                                debugPrint('ADD MEAL ERROR: $e');
+                                setSheetState(() => isAnalyzing = false);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur : $e'),
+                                      backgroundColor: Colors.red[700],
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: isAnalyzing
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Analyser et ajouter',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMacrosCard(BuildContext context, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Iconsax.chart_21,
-                  color: TColors.primary,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Macronutriments',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: THelperFunctions.textColor(context),
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // Graphique circulaire
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 60,
-                  sections: [
-                    PieChartSectionData(
-                      value: proteinesConsommees,
-                      title: '${proteinesConsommees.toInt()}g',
-                      color: Colors.blue,
-                      radius: 50,
-                      titleStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      value: glucidesConsommes,
-                      title: '${glucidesConsommes.toInt()}g',
-                      color: Colors.orange,
-                      radius: 50,
-                      titleStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      value: lipidesConsommes,
-                      title: '${lipidesConsommes.toInt()}g',
-                      color: Colors.green,
-                      radius: 50,
-                      titleStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Légende
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildMacroLegend(context, isDark, 'Protéines', proteinesConsommees, proteinesObjectif, Colors.blue),
-                _buildMacroLegend(context, isDark, 'Glucides', glucidesConsommes, glucidesObjectif, Colors.orange),
-                _buildMacroLegend(context, isDark, 'Lipides', lipidesConsommes, lipidesObjectif, Colors.green),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMacroLegend(BuildContext context, bool isDark, String nom, double consomme, double objectif, Color color) {
-    return Column(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          nom,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
-            fontSize: 11,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text.rich(
-          TextSpan(
-            text: '${consomme.toInt()}g',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: THelperFunctions.textColor(context),
-              fontSize: 12,
-            ),
-            children: [
-              TextSpan(
-                text: ' / ${objectif.toInt()}g',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.normal,
-                  color: isDark ? Colors.grey[500] : Colors.grey[500],
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRepasSection(BuildContext context, bool isDark, String titre, IconData icon, TypeRepas type) {
-    final repasSection = getRepasParType(type);
-    final totalCalories = repasSection.fold<double>(0, (sum, r) => sum + r.calories);
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              icon,
-              color: TColors.primary,
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              titre,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: THelperFunctions.textColor(context),
-                fontSize: 18,
-              ),
-            ),
-            const Spacer(),
-            if (totalCalories > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: TColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${totalCalories.toInt()} kcal',
-                  style: TextStyle(
-                    color: TColors.primary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (repasSection.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.transparent : Colors.grey[50],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.grey.withOpacity(0.1),
-              ),
-            ),
-            child: Center(
-              child: Text(
-                'Aucun repas enregistré',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isDark ? Colors.grey[500] : Colors.grey[500],
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          )
-        else
-          ...repasSection.map((repas) => Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: _buildRepasCard(context, repas, isDark),
-          )),
-      ],
-    );
-  }
-
-  Widget _buildRepasCard(BuildContext context, Repas repas, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () {
-          _showRepasDetails(context, repas, isDark);
+          );
         },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Expanded(
+      ),
+    );
+  }
+
+  Future<void> _openFreestyleSheet() async {
+    final nameCtrl = TextEditingController();
+    final caloriesCtrl = TextEditingController();
+    final proteinCtrl = TextEditingController();
+    final carbsCtrl = TextEditingController();
+    final fatCtrl = TextEditingController();
+    final fiberCtrl = TextEditingController();
+    String selectedType = 'snack';
+    bool isSaving = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final isDark = THelperFunctions.isDarkMode(context);
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? TColors.darkBackground : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: SingleChildScrollView(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      repas.nom,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: THelperFunctions.textColor(context),
-                        fontSize: 16,
+                    Center(
+                      child: Container(
+                        width: 40, height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    Text('Saisie manuelle',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: THelperFunctions.textColor(context),
+                            )),
                     const SizedBox(height: 4),
+                    Text("Edamam ne reconnaît pas l'aliment ? Saisis les macros toi-même.",
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                    const SizedBox(height: 16),
+                    // Nom de l'aliment
+                    _FreestyleField(
+                      controller: nameCtrl,
+                      label: 'Nom de l\'aliment',
+                      hint: 'ex: Burger maison, Lait entier…',
+                      isDark: isDark,
+                    ),
+                    const SizedBox(height: 10),
+                    // Sélecteur type de repas
+                    Text('Repas',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.grey[300] : Colors.grey[700])),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: _mealTypes.map((type) {
+                        final selected = type == selectedType;
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: GestureDetector(
+                              onTap: () => setSheetState(() => selectedType = type),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? TColors.primary.withOpacity(0.15)
+                                      : (isDark ? Colors.grey[900] : Colors.grey[100]),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: selected ? TColors.primary : Colors.transparent,
+                                  ),
+                                ),
+                                child: Text(
+                                  _mealLabels[type]!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: selected
+                                        ? TColors.primary
+                                        : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    // Calories (pleine largeur)
+                    _FreestyleField(
+                      controller: caloriesCtrl,
+                      label: 'Calories (kcal) *',
+                      hint: '0',
+                      isDark: isDark,
+                      numeric: true,
+                    ),
+                    const SizedBox(height: 10),
+                    // Macros sur 2 colonnes
                     Row(
                       children: [
-                        Icon(
-                          Iconsax.clock,
-                          size: 12,
-                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        Expanded(
+                          child: _FreestyleField(
+                            controller: proteinCtrl,
+                            label: 'Protéines (g)',
+                            hint: '0',
+                            isDark: isDark,
+                            numeric: true,
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          repas.heure,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            fontSize: 12,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _FreestyleField(
+                            controller: carbsCtrl,
+                            label: 'Glucides (g)',
+                            hint: '0',
+                            isDark: isDark,
+                            numeric: true,
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _FreestyleField(
+                            controller: fatCtrl,
+                            label: 'Lipides (g)',
+                            hint: '0',
+                            isDark: isDark,
+                            numeric: true,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _FreestyleField(
+                            controller: fiberCtrl,
+                            label: 'Fibres (g)',
+                            hint: '0',
+                            isDark: isDark,
+                            numeric: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final name = nameCtrl.text.trim();
+                                final calories = double.tryParse(caloriesCtrl.text.trim());
+                                if (name.isEmpty || calories == null) return;
+                                setSheetState(() => isSaving = true);
+                                try {
+                                  final userId = _ctrl.userId.value!;
+                                  await _auth.addMeal(
+                                    userId,
+                                    mealType: selectedType,
+                                    description: name,
+                                    calories: calories,
+                                    proteinG: double.tryParse(proteinCtrl.text.trim()) ?? 0,
+                                    carbsG: double.tryParse(carbsCtrl.text.trim()) ?? 0,
+                                    fatG: double.tryParse(fatCtrl.text.trim()) ?? 0,
+                                    fiberG: double.tryParse(fiberCtrl.text.trim()) ?? 0,
+                                  );
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  await _loadMeals();
+                                } catch (e) {
+                                  setSheetState(() => isSaving = false);
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Erreur : $e'),
+                                        backgroundColor: Colors.red[700],
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: TColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: isSaving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Text('Ajouter',
+                                style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${repas.calories} kcal',
-                  style: const TextStyle(
-                    color: Colors.orange,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _deleteMeal(int mealId) async {
+    final userId = _ctrl.userId.value;
+    if (userId == null) return;
+    try {
+      await _auth.deleteMeal(userId, mealId);
+      await _loadMeals();
+    } catch (e) {
+      debugPrint('DELETE MEAL ERROR: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = THelperFunctions.isDarkMode(context);
+
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      backgroundColor: isDark ? TColors.darkBackground : Colors.white,
+      body: RefreshIndicator(
+        onRefresh: _loadMeals,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Titre ─────────────────────────────────────────────────────
+              Row(
+                children: [
+                  Icon(Iconsax.health, color: TColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Nutrition',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: THelperFunctions.textColor(context),
+                          fontSize: 22,
+                        ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Iconsax.arrow_right_3,
-                size: 16,
-                color: TColors.primary,
+              const SizedBox(height: 6),
+              Text(
+                "Aujourd'hui",
+                style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600]),
               ),
+              const SizedBox(height: 20),
+
+              // ── Compteur journalier ────────────────────────────────────────
+              _DailyCounter(
+                calories: _totalCalories,
+                maintenanceCalories: _maintenanceCalories,
+                protein: _totalProtein,
+                fat: _totalFat,
+                carbs: _totalCarbs,
+                fiber: _totalFiber,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 24),
+
+              // ── Cards repas ────────────────────────────────────────────────
+              ..._mealTypes.map((type) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _MealCard(
+                      mealType: type,
+                      label: _mealLabels[type]!,
+                      icon: _mealIcons[type]!,
+                      meals: _mealsOf(type),
+                      isDark: isDark,
+                      onAdd: () => _openAddSheet(type),
+                      onDelete: _deleteMeal,
+                    ),
+                  )),
+
+              // ── Saisie manuelle ────────────────────────────────────────────
+              _FreestyleCard(isDark: isDark, onAdd: _openFreestyleSheet),
+              const SizedBox(height: 8),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildStatsCard(BuildContext context, bool isDark) {
-    final moyenneQuotidienne = 1850.0; // Simulé
-    final meilleurJour = 2200.0; // Simulé
-    final totalSemaine = 12950.0; // Simulé
-    
+// ─── Widget compteur journalier ───────────────────────────────────────────────
+
+class _DailyCounter extends StatelessWidget {
+  final double calories, maintenanceCalories, protein, fat, carbs, fiber;
+  final bool isDark;
+
+  const _DailyCounter({
+    required this.calories,
+    required this.maintenanceCalories,
+    required this.protein,
+    required this.fat,
+    required this.carbs,
+    required this.fiber,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (calories / maintenanceCalories).clamp(0.0, 1.0);
+    final remaining = (maintenanceCalories - calories).clamp(0.0, double.infinity);
+    final Color barColor = progress < 0.75
+        ? Colors.green
+        : progress < 1.0
+            ? Colors.orange
+            : Colors.red;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.transparent : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Ligne calories consommées / maintien
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Calories du jour',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: THelperFunctions.textColor(context))),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${calories.toStringAsFixed(0)} ',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: barColor),
+                    ),
+                    TextSpan(
+                      text: '/ ${maintenanceCalories.toStringAsFixed(0)} kcal',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Barre de progression
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            remaining > 0
+                ? '${remaining.toStringAsFixed(0)} kcal restantes'
+                : 'Objectif de maintien atteint',
+            style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.grey[400] : Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          // Macros
+          Row(
+            children: [
+              _MacroChip(label: 'Protéines', value: protein, color: Colors.blue),
+              const SizedBox(width: 8),
+              _MacroChip(label: 'Glucides', value: carbs, color: Colors.orange),
+              const SizedBox(width: 8),
+              _MacroChip(label: 'Lipides', value: fat, color: Colors.red[300]!),
+              const SizedBox(width: 8),
+              _MacroChip(label: 'Fibres', value: fiber, color: Colors.green),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroChip extends StatelessWidget {
+  final String label;
+  final double value;
+  final Color color;
+
+  const _MacroChip(
+      {required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text('${value.toStringAsFixed(0)}g',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: color)),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(fontSize: 10, color: color.withOpacity(0.8)),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Widget card repas ────────────────────────────────────────────────────────
+
+class _MealCard extends StatelessWidget {
+  final String mealType;
+  final String label;
+  final IconData icon;
+  final List<MealEntry> meals;
+  final bool isDark;
+  final VoidCallback onAdd;
+  final void Function(int mealId) onDelete;
+
+  const _MealCard({
+    required this.mealType,
+    required this.label,
+    required this.icon,
+    required this.meals,
+    required this.isDark,
+    required this.onAdd,
+    required this.onDelete,
+  });
+
+  double get _totalCal => meals.fold(0, (s, m) => s + m.calories);
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? Colors.transparent : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.15),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2))
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+            child: Row(
+              children: [
+                Icon(icon, color: TColors.primary, size: 20),
+                const SizedBox(width: 10),
+                Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: THelperFunctions.textColor(context))),
+                const Spacer(),
+                if (meals.isNotEmpty)
+                  Text('${_totalCal.toStringAsFixed(0)} kcal',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: onAdd,
+                  icon: Icon(Iconsax.add_circle, color: TColors.primary, size: 22),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+
+          // Liste des entrées
+          if (meals.isNotEmpty) ...[
+            Divider(height: 1, color: Colors.grey.withOpacity(0.15)),
+            ...meals.map((m) => _MealEntryTile(
+                  entry: m,
+                  isDark: isDark,
+                  onDelete: () => onDelete(m.id),
+                )),
+          ] else
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 14),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Rien d\'ajouté',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color:
+                            isDark ? Colors.grey[600] : Colors.grey[400])),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MealEntryTile extends StatelessWidget {
+  final MealEntry entry;
+  final bool isDark;
+  final VoidCallback onDelete;
+
+  const _MealEntryTile(
+      {required this.entry, required this.isDark, required this.onDelete});
+
+  void _showDetail(BuildContext context) {
+    final lines = entry.description
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? TColors.darkBackground : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Iconsax.chart_1,
-                  color: TColors.primary,
-                  size: 18,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Statistiques',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: THelperFunctions.textColor(context),
-                    fontSize: 18,
-                  ),
-                ),
-              ],
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2)),
+              ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatItem(context, isDark, 'Moyenne', '${moyenneQuotidienne.toInt()} kcal', Iconsax.chart_2),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatItem(context, isDark, 'Meilleur jour', '${meilleurJour.toInt()} kcal', Iconsax.star),
-                ),
-              ],
-            ),
+            Text('Détail du repas',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: THelperFunctions.textColor(context))),
             const SizedBox(height: 12),
-            _buildStatItem(context, isDark, 'Total semaine', '${totalSemaine.toInt()} kcal', Iconsax.calendar),
+            // Aliments
+            ...lines.map((line) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Iconsax.arrow_right_3,
+                          size: 14, color: TColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(line,
+                            style: TextStyle(
+                                fontSize: 13,
+                                color: THelperFunctions.textColor(context))),
+                      ),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 16),
+            Divider(color: Colors.grey.withOpacity(0.2)),
+            const SizedBox(height: 12),
+            // Tableau macros
+            _MacroRow('Calories', '${entry.calories.toStringAsFixed(0)} kcal',
+                TColors.primary, isDark),
+            _MacroRow('Protéines', '${entry.proteinG.toStringAsFixed(1)} g',
+                Colors.blue, isDark),
+            _MacroRow('Glucides', '${entry.carbsG.toStringAsFixed(1)} g',
+                Colors.orange, isDark),
+            _MacroRow('Lipides', '${entry.fatG.toStringAsFixed(1)} g',
+                Colors.red[300]!, isDark),
+            _MacroRow('Fibres', '${entry.fiberG.toStringAsFixed(1)} g',
+                Colors.green, isDark),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  onDelete();
+                },
+                icon: Icon(Iconsax.trash, size: 16, color: Colors.red[400]),
+                label: Text('Supprimer ce repas',
+                    style: TextStyle(color: Colors.red[400])),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.red[300]!),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(BuildContext context, bool isDark, String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.1),
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showDetail(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.description,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: THelperFunctions.textColor(context)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 2,
+                    children: [
+                      _MiniMacro('${entry.calories.toStringAsFixed(0)} kcal',
+                          TColors.primary),
+                      _MiniMacro(
+                          'P ${entry.proteinG.toStringAsFixed(0)}g', Colors.blue),
+                      _MiniMacro('G ${entry.carbsG.toStringAsFixed(0)}g',
+                          Colors.orange),
+                      _MiniMacro(
+                          'L ${entry.fatG.toStringAsFixed(0)}g', Colors.red[300]!),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Icon(Iconsax.arrow_right_3,
+                size: 16,
+                color: isDark ? Colors.grey[600] : Colors.grey[400]),
+            const SizedBox(width: 8),
+          ],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+class _MacroRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final bool isDark;
+
+  const _MacroRow(this.label, this.value, this.color, this.isDark);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-              Icon(
-                icon,
-                size: 16,
-                color: TColors.primary,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: THelperFunctions.textColor(context),
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRepasDetails(BuildContext context, Repas repas, bool isDark) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? TColors.darkBackground : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
               Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
+                width: 10, height: 10,
                 decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                    color: color, borderRadius: BorderRadius.circular(2)),
               ),
-              // Content
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Iconsax.health,
-                              color: Colors.orange,
-                              size: 32,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  repas.nom,
-                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: THelperFunctions.textColor(context),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Iconsax.clock,
-                                      size: 14,
-                                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      repas.heure,
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Calories principales
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '${repas.calories}',
-                              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
-                                fontSize: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'kcal',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.orange,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Macronutriments
-                      Text(
-                        'Macronutriments',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: THelperFunctions.textColor(context),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMacroDetailCard(
-                              context,
-                              isDark,
-                              'Protéines',
-                              '${repas.proteines}g',
-                              Colors.blue,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildMacroDetailCard(
-                              context,
-                              isDark,
-                              'Glucides',
-                              '${repas.glucides}g',
-                              Colors.orange,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildMacroDetailCard(
-                              context,
-                              isDark,
-                              'Lipides',
-                              '${repas.lipides}g',
-                              Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      // Liste des aliments
-                      Text(
-                        'Aliments',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: THelperFunctions.textColor(context),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...repas.aliments.map((aliment) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Colors.orange,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                aliment,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: THelperFunctions.textColor(context),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-                    ],
-                  ),
-                ),
-              ),
-              // Boutons d'action
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24.0, 8.0, 24.0, 24.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          // TODO: Implémenter la modification
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: TColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Modifier',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          // TODO: Implémenter la suppression
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Repas "${repas.nom}" supprimé'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Supprimer',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(width: 10),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: THelperFunctions.textColor(context))),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMacroDetailCard(BuildContext context, bool isDark, String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color)),
         ],
       ),
     );
   }
 }
 
-enum TypeRepas {
-  petitDejeuner,
-  dejeuner,
-  diner,
-  collation,
+class _MiniMacro extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _MiniMacro(this.text, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: TextStyle(
+            fontSize: 11,
+            color: color,
+            fontWeight: FontWeight.w500));
+  }
 }
 
-class Repas {
-  final int id;
-  final String nom;
-  final TypeRepas type;
-  final int calories;
-  final double proteines;
-  final double glucides;
-  final double lipides;
-  final String heure;
-  final List<String> aliments;
+// ─── Card saisie manuelle ─────────────────────────────────────────────────────
 
-  const Repas({
-    required this.id,
-    required this.nom,
-    required this.type,
-    required this.calories,
-    required this.proteines,
-    required this.glucides,
-    required this.lipides,
-    required this.heure,
-    required this.aliments,
+class _FreestyleCard extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onAdd;
+
+  const _FreestyleCard({required this.isDark, required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onAdd,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.transparent : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: TColors.primary.withOpacity(0.3),
+            style: BorderStyle.solid,
+          ),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: TColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Iconsax.edit, color: TColors.primary, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Saisie manuelle',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: THelperFunctions.textColor(context))),
+                  const SizedBox(height: 2),
+                  Text("Edamam ne reconnaît pas l'aliment ? Entre les macros toi-même.",
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                ],
+              ),
+            ),
+            Icon(Iconsax.arrow_right_3, size: 16, color: TColors.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Champ texte freestyle ────────────────────────────────────────────────────
+
+class _FreestyleField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final bool isDark;
+  final bool numeric;
+
+  const _FreestyleField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.isDark,
+    this.numeric = false,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.grey[300] : Colors.grey[700])),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          keyboardType: numeric
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.text,
+          style: TextStyle(
+              color: THelperFunctions.textColor(context), fontSize: 14),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+                fontSize: 13),
+            filled: true,
+            fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  BorderSide(color: Colors.grey.withOpacity(0.3), width: 1),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: TColors.primary, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
