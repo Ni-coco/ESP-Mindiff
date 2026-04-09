@@ -1014,3 +1014,16 @@ final List<ExerciseAnalyzer> kExercises = [
   OverheadPressAnalyzer(),
   PlankAnalyzer(),
 ];
+
+/// Mapping analyzerKey → index dans kExercises
+const kAnalyzerKeyToIndex = <String, int>{
+  'squat': 0,
+  'bench': 1,
+  'pullup': 2,
+  'pushup': 3,
+  'curl': 4,
+  'row': 5,
+  'dips': 6,
+  'ohp': 7,
+  'plank': 8,
+};

@@ -1,9 +1,11 @@
-import 'dart:typed_data';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:get/get.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:mindiff_app/controllers/active_programme_controller.dart';
 import 'exercise_analyzer.dart';
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,14 @@ class _CameraPageState extends State<CameraPage>
   bool _permissionGranted = false;
   bool _initialized = false;
   Size? _imageSize;
+  List<CameraDescription> _cameras = [];
+  bool _isFrontCamera = true;
+  bool _isAnalyzing = false;
+
+  // Pause entre séries
+  bool _isResting = false;
+  int _restSeconds = 0;
+  static const _restDuration = 60; // secondes de pause
 
   // Exercise selection
   int _selectedIndex = 0;
@@ -43,9 +53,15 @@ class _CameraPageState extends State<CameraPage>
 
   // TTS
   final FlutterTts _tts = FlutterTts();
-  String _lastSpokenAdvice = '';
   bool _isSpeaking = false;
   bool _ttsEnabled = true;
+  int _lastSpokenRep = 0;
+  String _pendingAdvice = '';
+  int _pendingAdviceFrames = 0;
+  String _lastSpokenAdvice = '';
+  DateTime _lastAdviceAt = DateTime(2000);
+  static const _adviceCooldown = Duration(seconds: 4);
+  static const _adviceFrameThreshold = 8;
 
   @override
   void initState() {
@@ -68,12 +84,52 @@ class _CameraPageState extends State<CameraPage>
     _tts.setCompletionHandler(() => _isSpeaking = false);
   }
 
-  void _speakAdvice(String advice) {
-    if (!_ttsEnabled || advice == _lastSpokenAdvice || _isSpeaking) return;
-    if (advice == 'Positionnez-vous devant la caméra') return;
-    _lastSpokenAdvice = advice;
+  static final _emojiRegex = RegExp(
+    r'[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}'
+    r'\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}'
+    r'\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}'
+    r'\u{E0020}-\u{E007F}]',
+    unicode: true,
+  );
+
+  void _speak(String text) {
+    final clean = text.replaceAll(_emojiRegex, '').trim();
+    if (clean.isEmpty) return;
+    if (_isSpeaking) {
+      _tts.stop();
+    }
     _isSpeaking = true;
-    _tts.speak(advice);
+    _tts.speak(clean);
+  }
+
+  void _processTts(ExerciseFeedback feedback) {
+    if (!_ttsEnabled) return;
+
+    // 1. Reps : toujours annoncer quand ça change
+    if (feedback.repCount > 0 && feedback.repCount != _lastSpokenRep) {
+      _lastSpokenRep = feedback.repCount;
+      _speak('${feedback.repCount}');
+      return;
+    }
+
+    // 2. Conseils de correction : seulement si le même conseil persiste
+    final advice = feedback.advice;
+    if (advice.isEmpty || advice == 'Positionnez-vous devant la caméra') return;
+
+    if (advice == _pendingAdvice) {
+      _pendingAdviceFrames++;
+    } else {
+      _pendingAdvice = advice;
+      _pendingAdviceFrames = 1;
+    }
+
+    if (_pendingAdviceFrames >= _adviceFrameThreshold &&
+        advice != _lastSpokenAdvice &&
+        DateTime.now().difference(_lastAdviceAt) > _adviceCooldown) {
+      _lastSpokenAdvice = advice;
+      _lastAdviceAt = DateTime.now();
+      _speak(advice);
+    }
   }
 
   Future<void> _requestPermissionAndInit() async {
@@ -88,16 +144,23 @@ class _CameraPageState extends State<CameraPage>
   }
 
   Future<void> _initCamera() async {
-    final cameras = await availableCameras();
-    if (cameras.isEmpty) return;
+    _cameras = await availableCameras();
+    if (_cameras.isEmpty) return;
 
-    final camera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
+    _poseDetector ??= PoseDetector(
+      options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
     );
 
-    _poseDetector = PoseDetector(
-      options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
+    await _startCamera();
+  }
+
+  Future<void> _startCamera() async {
+    final direction = _isFrontCamera
+        ? CameraLensDirection.front
+        : CameraLensDirection.back;
+    final camera = _cameras.firstWhere(
+      (c) => c.lensDirection == direction,
+      orElse: () => _cameras.first,
     );
 
     _cameraController = CameraController(
@@ -113,7 +176,7 @@ class _CameraPageState extends State<CameraPage>
     setState(() => _initialized = true);
 
     _cameraController!.startImageStream((CameraImage image) {
-      if (_isDetecting) return;
+      if (!_isAnalyzing || _isDetecting) return;
       _isDetecting = true;
       _detectPose(image, camera.sensorOrientation).then((_) {
         _isDetecting = false;
@@ -121,12 +184,65 @@ class _CameraPageState extends State<CameraPage>
     });
   }
 
+  Future<void> _switchCamera() async {
+    setState(() => _initialized = false);
+    await _cameraController?.stopImageStream();
+    await _cameraController?.dispose();
+    _isFrontCamera = !_isFrontCamera;
+    _poses = [];
+    _feedback = null;
+    await _startCamera();
+  }
+
+  Uint8List _yuv420ToNv21(CameraImage image) {
+    final width = image.width;
+    final height = image.height;
+    final yPlane = image.planes[0];
+    final uPlane = image.planes[1];
+    final vPlane = image.planes[2];
+
+    final nv21 = Uint8List(width * height + (width * height ~/ 2));
+
+    // Copy Y plane
+    int index = 0;
+    for (int row = 0; row < height; row++) {
+      for (int col = 0; col < width; col++) {
+        nv21[index++] = yPlane.bytes[row * yPlane.bytesPerRow + col];
+      }
+    }
+
+    // Interleave V and U planes into NV21 format (VUVU...)
+    final uvWidth = width ~/ 2;
+    final uvHeight = height ~/ 2;
+    for (int row = 0; row < uvHeight; row++) {
+      for (int col = 0; col < uvWidth; col++) {
+        nv21[index++] = vPlane.bytes[row * vPlane.bytesPerRow + col * (vPlane.bytesPerPixel ?? 1)];
+        nv21[index++] = uPlane.bytes[row * uPlane.bytesPerRow + col * (uPlane.bytesPerPixel ?? 1)];
+      }
+    }
+
+    return nv21;
+  }
+
+  bool _isPoseReliable(Pose pose) {
+    // Vérifier que les landmarks clés du corps ont une confiance > 0.7
+    const keyLandmarks = [
+      PoseLandmarkType.leftShoulder,
+      PoseLandmarkType.rightShoulder,
+      PoseLandmarkType.leftHip,
+      PoseLandmarkType.rightHip,
+    ];
+    for (final type in keyLandmarks) {
+      final lm = pose.landmarks[type];
+      if (lm == null || lm.likelihood < 0.7) return false;
+    }
+    return true;
+  }
+
   Future<void> _detectPose(CameraImage image, int sensorOrientation) async {
     if (_poseDetector == null) return;
 
-    final Uint8List bytes = Uint8List.fromList(
-      image.planes.expand((plane) => plane.bytes).toList(),
-    );
+    final bytes = _yuv420ToNv21(image);
 
     final inputImage = InputImage.fromBytes(
       bytes: bytes,
@@ -135,7 +251,7 @@ class _CameraPageState extends State<CameraPage>
         rotation: InputImageRotationValue.fromRawValue(sensorOrientation) ??
             InputImageRotation.rotation0deg,
         format: InputImageFormat.nv21,
-        bytesPerRow: image.planes[0].bytesPerRow,
+        bytesPerRow: image.width,
       ),
     );
 
@@ -144,7 +260,7 @@ class _CameraPageState extends State<CameraPage>
     if (mounted) {
       final imageSize = Size(image.height.toDouble(), image.width.toDouble());
       ExerciseFeedback? feedback;
-      if (poses.isNotEmpty) {
+      if (poses.isNotEmpty && _isPoseReliable(poses.first)) {
         feedback = _analyzers[_selectedIndex].analyze(poses.first);
       }
       setState(() {
@@ -152,8 +268,9 @@ class _CameraPageState extends State<CameraPage>
         _imageSize = imageSize;
         _feedback = feedback;
       });
-      if (feedback != null && feedback.advice.isNotEmpty) {
-        _speakAdvice(feedback.advice);
+      if (feedback != null) {
+        _processTts(feedback);
+        _checkAutoValidate(feedback.repCount);
       }
     }
   }
@@ -161,11 +278,16 @@ class _CameraPageState extends State<CameraPage>
   void _onPageChanged(int index) {
     if (index == _selectedIndex) return;
     _analyzers[_selectedIndex].reset();
+    _lastSpokenRep = 0;
     _lastSpokenAdvice = '';
+    _pendingAdvice = '';
+    _pendingAdviceFrames = 0;
     _tts.stop();
     setState(() {
       _selectedIndex = index;
       _feedback = null;
+      _isAnalyzing = false;
+      _poses = [];
     });
     _switchAnim.forward(from: 0);
   }
@@ -179,14 +301,182 @@ class _CameraPageState extends State<CameraPage>
     );
   }
 
+  void _toggleAnalyzing() {
+    if (_isAnalyzing) {
+      // On arrête l'analyse — valider la série si programme actif
+      final reps = _feedback?.repCount ?? 0;
+      final analyzerKey = _analyzerKeyForIndex(_selectedIndex);
+      _tryValidateSerie(analyzerKey, reps);
+      setState(() {
+        _isAnalyzing = false;
+        _poses = [];
+        _feedback = null;
+        _tts.stop();
+      });
+    } else {
+      // Reset l'analyzer avant de démarrer
+      _analyzers[_selectedIndex].reset();
+      _lastSpokenRep = 0;
+      setState(() {
+        _isAnalyzing = true;
+        _feedback = null;
+      });
+    }
+  }
+
+  String? _analyzerKeyForIndex(int index) {
+    for (final entry in kAnalyzerKeyToIndex.entries) {
+      if (entry.value == index) return entry.key;
+    }
+    return null;
+  }
+
+  String? _getProgrammeInfo(String? analyzerKey) {
+    if (analyzerKey == null) return null;
+    try {
+      final ctrl = Get.find<ActiveProgrammeController>();
+      if (!ctrl.hasActive) return null;
+      final data = ctrl.activeProgramme.value!;
+      final seance = data.seanceEnCours;
+      if (seance == null) return null;
+      final exo = data.exercices.cast<ProgrammeExercice?>().firstWhere(
+            (e) => e!.analyzerKey == analyzerKey,
+            orElse: () => null,
+          );
+      if (exo == null) return null;
+      final prog = seance.progressions[analyzerKey];
+      final serie = (prog?.seriesCompletes ?? 0) + 1;
+      final unit = exo.isSeconds ? 'sec' : 'reps';
+      return '${data.nom} — Série $serie/${exo.series} • Objectif ${exo.repsCible} $unit';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _checkAutoValidate(int reps) {
+    if (!_isAnalyzing || reps <= 0) return;
+    final analyzerKey = _analyzerKeyForIndex(_selectedIndex);
+    if (analyzerKey == null) return;
+
+    try {
+      final ctrl = Get.find<ActiveProgrammeController>();
+      if (!ctrl.hasActive) return;
+      final data = ctrl.activeProgramme.value!;
+      final seance = data.seanceEnCours;
+      if (seance == null) return;
+
+      final exo = data.exercices.cast<ProgrammeExercice?>().firstWhere(
+            (e) => e!.analyzerKey == analyzerKey,
+            orElse: () => null,
+          );
+      if (exo == null) return;
+
+      final prog = seance.progressions[analyzerKey];
+      if (prog != null && prog.estTermine(exo)) return;
+
+      // Auto-valider quand on atteint les reps cibles
+      if (reps >= exo.repsCible) {
+        _tryValidateSerie(analyzerKey, reps);
+        _startRest(exo, prog);
+      }
+    } catch (_) {}
+  }
+
+  void _startRest(ProgrammeExercice exo, ExerciceProgression? prog) {
+    final seriesFaites = prog?.seriesCompletes ?? 0;
+    // Si toutes les séries sont faites, pas de pause
+    if (seriesFaites >= exo.series) {
+      _speak('${exo.nom} terminé !');
+      setState(() {
+        _isAnalyzing = false;
+        _poses = [];
+        _feedback = null;
+      });
+      return;
+    }
+
+    // Lancer la pause
+    _speak('Série terminée. Repos.');
+    setState(() {
+      _isAnalyzing = false;
+      _isResting = true;
+      _restSeconds = _restDuration;
+      _poses = [];
+      _feedback = null;
+    });
+
+    _tickRest();
+  }
+
+  Future<void> _tickRest() async {
+    while (_restSeconds > 0 && _isResting && mounted) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted || !_isResting) return;
+      setState(() => _restSeconds--);
+    }
+    if (!mounted || !_isResting) return;
+
+    // Fin de la pause — relancer l'analyse
+    _speak('C\'est reparti !');
+    _analyzers[_selectedIndex].reset();
+    _lastSpokenRep = 0;
+    setState(() {
+      _isResting = false;
+      _isAnalyzing = true;
+      _feedback = null;
+    });
+  }
+
+  void _skipRest() {
+    setState(() {
+      _isResting = false;
+      _restSeconds = 0;
+    });
+    _analyzers[_selectedIndex].reset();
+    _lastSpokenRep = 0;
+    setState(() {
+      _isAnalyzing = true;
+      _feedback = null;
+    });
+  }
+
+  void _tryValidateSerie(String? analyzerKey, int reps) {
+    if (analyzerKey == null || reps <= 0) return;
+    try {
+      final ctrl = Get.find<ActiveProgrammeController>();
+      if (!ctrl.hasActive) return;
+      final data = ctrl.activeProgramme.value!;
+      final seance = data.seanceEnCours;
+      if (seance == null) return;
+      // Vérifier que cet exercice fait partie du programme
+      final hasExo =
+          data.exercices.any((e) => e.analyzerKey == analyzerKey);
+      if (!hasExo) return;
+      ctrl.validerSerie(analyzerKey, reps);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Série validée ! $reps reps'),
+            backgroundColor: const Color(0xFF4CAF50),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {}
+  }
+
   void _resetCurrentExercise() {
     _analyzers[_selectedIndex].reset();
+    _lastSpokenRep = 0;
     _lastSpokenAdvice = '';
+    _pendingAdvice = '';
+    _pendingAdviceFrames = 0;
     setState(() => _feedback = null);
   }
 
   @override
   void dispose() {
+    _isResting = false;
     _tts.stop();
     _cameraController?.stopImageStream();
     _cameraController?.dispose();
@@ -227,11 +517,12 @@ class _CameraPageState extends State<CameraPage>
           CameraPreview(_cameraController!),
 
           // ── Skeleton overlay ─────────────────────────────────────────────
-          if (_poses.isNotEmpty && _imageSize != null)
+          if (_isAnalyzing && _poses.isNotEmpty && _imageSize != null)
             CustomPaint(
               painter: PoseOverlayPainter(
                 poses: _poses,
                 imageSize: _imageSize!,
+                isFrontCamera: _isFrontCamera,
                 skeletonColor:
                     _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
               ),
@@ -271,7 +562,7 @@ class _CameraPageState extends State<CameraPage>
             ),
           ),
 
-          // ── Top bar: exercise name + reset ───────────────────────────────
+          // ── Top bar: exercise name + actions ──────────────────────────────
           Positioned(
             top: 0,
             left: 0,
@@ -287,11 +578,14 @@ class _CameraPageState extends State<CameraPage>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00E5FF).withValues(alpha: 0.15),
+                        color: _isAnalyzing
+                            ? const Color(0xFF00E5FF).withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color:
-                              const Color(0xFF00E5FF).withValues(alpha: 0.5),
+                          color: _isAnalyzing
+                              ? const Color(0xFF00E5FF).withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.3),
                           width: 1,
                         ),
                       ),
@@ -303,8 +597,10 @@ class _CameraPageState extends State<CameraPage>
                           const SizedBox(width: 6),
                           Text(
                             exercise.name.replaceAll('\n', ' '),
-                            style: const TextStyle(
-                              color: Color(0xFF00E5FF),
+                            style: TextStyle(
+                              color: _isAnalyzing
+                                  ? const Color(0xFF00E5FF)
+                                  : Colors.white,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
@@ -314,12 +610,55 @@ class _CameraPageState extends State<CameraPage>
                       ),
                     ),
                     const Spacer(),
-                    // TTS toggle button
+                    if (_isAnalyzing) ...[
+                      // TTS toggle button
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _ttsEnabled = !_ttsEnabled);
+                          if (!_ttsEnabled) _tts.stop();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Icon(
+                            _ttsEnabled
+                                ? Icons.volume_up_rounded
+                                : Icons.volume_off_rounded,
+                            color: _ttsEnabled
+                                ? const Color(0xFF00E5FF)
+                                : Colors.white70,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Reset button
+                      GestureDetector(
+                        onTap: _resetCurrentExercise,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: const Icon(Icons.refresh_rounded,
+                              color: Colors.white70, size: 20),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    // Switch camera button
                     GestureDetector(
-                      onTap: () {
-                        setState(() => _ttsEnabled = !_ttsEnabled);
-                        if (!_ttsEnabled) _tts.stop();
-                      },
+                      onTap: _switchCamera,
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
@@ -329,32 +668,36 @@ class _CameraPageState extends State<CameraPage>
                             color: Colors.white.withValues(alpha: 0.2),
                           ),
                         ),
-                        child: Icon(
-                          _ttsEnabled
-                              ? Icons.volume_up_rounded
-                              : Icons.volume_off_rounded,
-                          color: _ttsEnabled
-                              ? const Color(0xFF00E5FF)
-                              : Colors.white70,
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.cameraswitch_rounded,
+                            color: Colors.white70, size: 20),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Reset button
+                    // Play / Stop analysis button
                     GestureDetector(
-                      onTap: _resetCurrentExercise,
+                      onTap: _isResting ? null : _toggleAnalyzing,
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: _isAnalyzing
+                              ? Colors.red.withValues(alpha: 0.25)
+                              : const Color(0xFF00E5FF).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: _isAnalyzing
+                                ? Colors.red.withValues(alpha: 0.6)
+                                : const Color(0xFF00E5FF).withValues(alpha: 0.6),
                           ),
                         ),
-                        child: const Icon(Icons.refresh_rounded,
-                            color: Colors.white70, size: 20),
+                        child: Icon(
+                          _isAnalyzing
+                              ? Icons.stop_rounded
+                              : Icons.play_arrow_rounded,
+                          color: _isAnalyzing
+                              ? Colors.red
+                              : const Color(0xFF00E5FF),
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
@@ -363,41 +706,139 @@ class _CameraPageState extends State<CameraPage>
             ),
           ),
 
-          // ── Rep counter + angles (top overlay) ──────────────────────────
-          Positioned(
-            top: 100,
-            left: 16,
-            child: _RepCounter(
-              count: _feedback?.repCount ?? 0,
-              isSeconds: _analyzers[_selectedIndex] is PlankAnalyzer,
-            ),
-          ),
+          // ── Programme objective badge ────────────────────────────────────
+          if (_isAnalyzing) Builder(builder: (_) {
+            final key = _analyzerKeyForIndex(_selectedIndex);
+            final info = _getProgrammeInfo(key);
+            if (info == null) return const SizedBox.shrink();
+            return Positioned(
+              top: 80,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Text(
+                  info,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }),
 
-          if (_feedback != null && _feedback!.angles.isNotEmpty)
+          // ── Analyzing UI (rep counter, angles, advice) ────────────────────
+          if (_isAnalyzing) ...[
             Positioned(
               top: 100,
+              left: 16,
+              child: _RepCounter(
+                count: _feedback?.repCount ?? 0,
+                isSeconds: _analyzers[_selectedIndex] is PlankAnalyzer,
+              ),
+            ),
+
+            if (_feedback != null && _feedback!.angles.isNotEmpty)
+              Positioned(
+                top: 100,
+                right: 16,
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: _AngleDisplay(angles: _feedback!.angles),
+                ),
+              ),
+
+            Positioned(
+              bottom: 130,
+              left: 16,
               right: 16,
               child: FadeTransition(
                 opacity: _fadeAnim,
-                child: _AngleDisplay(angles: _feedback!.angles),
+                child: _AdviceBanner(
+                  advice: _feedback?.advice ??
+                      'Positionnez-vous devant la caméra',
+                  color: _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
+                  phase: _feedback?.phase ?? '',
+                ),
               ),
             ),
+          ],
 
-          // ── Advice banner ────────────────────────────────────────────────
-          Positioned(
-            bottom: 130,
-            left: 16,
-            right: 16,
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: _AdviceBanner(
-                advice: _feedback?.advice ??
-                    'Positionnez-vous devant la caméra',
-                color: _feedback?.skeletonColor ?? const Color(0xFF00E5FF),
-                phase: _feedback?.phase ?? '',
+          // ── Rest timer overlay ─────────────────────────────────────────
+          if (_isResting)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.75),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'REPOS',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_restSeconds}s',
+                        style: const TextStyle(
+                          color: Color(0xFF00E5FF),
+                          fontSize: 72,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 200,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: _restSeconds / _restDuration,
+                            backgroundColor: Colors.white12,
+                            valueColor: const AlwaysStoppedAnimation(
+                                Color(0xFF00E5FF)),
+                            minHeight: 4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: _skipRest,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Colors.white30, width: 1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'PASSER',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
 
           // ── Exercise Slider ───────────────────────────────────────────────
           Positioned(
@@ -726,13 +1167,13 @@ class PoseOverlayPainter extends CustomPainter {
         final start = pose.landmarks[connection[0]];
         final end = pose.landmarks[connection[1]];
         if (start == null || end == null) continue;
-        if (start.likelihood < 0.5 || end.likelihood < 0.5) continue;
+        if (start.likelihood < 0.75 || end.likelihood < 0.75) continue;
         canvas.drawLine(
             _tp(start.x, start.y, size), _tp(end.x, end.y, size), linePaint);
       }
 
       for (final landmark in pose.landmarks.values) {
-        if (landmark.likelihood < 0.5) continue;
+        if (landmark.likelihood < 0.75) continue;
         final pt = _tp(landmark.x, landmark.y, size);
         canvas.drawCircle(pt, 7, highlightPaint);
         canvas.drawCircle(pt, 4, dotPaint);
@@ -741,8 +1182,11 @@ class PoseOverlayPainter extends CustomPainter {
   }
 
   Offset _tp(double x, double y, Size canvasSize) {
-    final dx = (x / imageSize.width) * canvasSize.width;
+    double dx = (x / imageSize.width) * canvasSize.width;
     final dy = (y / imageSize.height) * canvasSize.height;
+    if (isFrontCamera) {
+      dx = canvasSize.width - dx;
+    }
     return Offset(dx, dy);
   }
 
