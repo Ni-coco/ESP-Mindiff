@@ -5,7 +5,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
+import 'package:mindiff_app/pages/balance_page.dart';
 import 'package:mindiff_app/utils/theme.dart';
+
 
 class MetricsPage extends StatefulWidget {
   const MetricsPage({super.key});
@@ -370,6 +372,17 @@ class _MetricsPageState extends State<MetricsPage> {
                                 fontWeight: FontWeight.bold,
                                 color: THelperFunctions.textColor(context),
                                 fontSize: 24,
+                              ),
+                            ),
+                            // Bouton Balance
+                            ElevatedButton.icon(
+                              onPressed: () => Get.to(() => const BalancePage()),
+                              icon: const Icon(Iconsax.bluetooth),
+                              label: const Text('Peser avec la balance'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: TColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           ],
