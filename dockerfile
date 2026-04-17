@@ -1,3 +1,3 @@
 FROM nginx:alpine
-COPY mindiff-website/ /usr/share/nginx/html/
+COPY . /usr/share/nginx/html/
 EXPOSE 80
