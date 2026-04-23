@@ -1,8 +1,6 @@
 import httpx
 from app.core.config import settings
 
-EDAMAM_URL = "https://api.edamam.com/api/nutrition-details"
-
 
 def analyze_nutrition(text: str) -> dict:
     """
@@ -15,7 +13,7 @@ def analyze_nutrition(text: str) -> dict:
         return {"calories": 0, "protein_g": 0, "fat_g": 0, "carbs_g": 0, "fiber_g": 0}
 
     response = httpx.post(
-        EDAMAM_URL,
+        settings.EDAMAM_NUTRITION_URL,
         params={"app_id": settings.EDAMAM_APP_ID, "app_key": settings.EDAMAM_APP_KEY},
         json={"title": "meal", "ingr": ingredients},
         timeout=15,

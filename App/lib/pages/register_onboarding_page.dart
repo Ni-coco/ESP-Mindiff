@@ -1024,7 +1024,10 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
         message = 'Ce nom d\'utilisateur est déjà pris';
       }
       Get.snackbar('Erreur', message, snackPosition: SnackPosition.BOTTOM);
-    } catch (_) {
+    } catch (e, st) {
+      // Debug temporaire: expose la vraie erreur dans le terminal Flutter.
+      debugPrint('Registration flow unexpected error: $e');
+      debugPrintStack(stackTrace: st);
       Get.back(); // Fermer le loader
       Get.snackbar('Erreur', 'Impossible de se connecter au serveur',
           snackPosition: SnackPosition.BOTTOM);

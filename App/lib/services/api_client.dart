@@ -20,12 +20,11 @@ class UnauthorizedException extends ApiException {
 class ApiClient extends GetxService {
   static const String _tokenKey = 'jwt_token';
 
-  // 10.0.2.2 pour émulateur Android, localhost pour iOS/web
   final String baseUrl;
 
   String? _token;
 
-  ApiClient({this.baseUrl = 'http://localhost:8082'});
+  ApiClient({required this.baseUrl});
 
   bool get isAuthenticated => _token != null;
   String? get token => _token;

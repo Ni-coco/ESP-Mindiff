@@ -44,6 +44,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _load() async {
     final userId = _ctrl.userId.value;
     if (userId == null) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       return;
     }
@@ -52,6 +53,7 @@ class _HomePageState extends State<HomePage> {
         _auth.getWeightHistory(userId),
         _auth.getMealSuggestions(userId),
       ]);
+      if (!mounted) return;
       setState(() {
         _history = (results[0] as List<Map<String, dynamic>>)
             .map((e) => _WeightPoint(

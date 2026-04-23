@@ -88,7 +88,11 @@ Scans dependencies for known vulnerabilities and outdated packages.
 The workflows use the following environment variables:
 
 ### CI Workflows
-- `DATABASE_URL`: PostgreSQL connection string (automatically configured in CI)
+- `POSTGRES_USER`: PostgreSQL username
+- `POSTGRES_PASSWORD`: PostgreSQL password
+- `POSTGRES_DB`: PostgreSQL database name
+- `POSTGRES_HOST`: PostgreSQL host
+- `POSTGRES_PORT`: PostgreSQL port
 - `SKIP_ALEMBIC`: Set to `"false"` to run migrations during tests
 
 ### Docker Workflows
@@ -148,7 +152,7 @@ act pull_request
 ### Tests failing in CI but passing locally
 
 **Common causes:**
-- Database connection issues: Ensure `DATABASE_URL` is correctly configured
+- Database connection issues: Ensure `POSTGRES_*` variables are correctly configured
 - Python version differences: The CI tests multiple Python versions
 - Missing dependencies: Run `uv sync` to ensure all dependencies are installed
 - Alembic migrations: Set `SKIP_ALEMBIC: "false"` if your tests require migrations

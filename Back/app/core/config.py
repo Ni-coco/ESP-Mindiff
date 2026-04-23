@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    DATABASE_URL: str = ""
 
     # JWT Configuration
     SECRET_KEY: str
@@ -36,13 +39,16 @@ class Settings(BaseSettings):
     # Edamam Nutrition Analysis API
     EDAMAM_APP_ID: str = ""
     EDAMAM_APP_KEY: str = ""
+    EDAMAM_NUTRITION_URL: str = "https://api.edamam.com/api/nutrition-details"
 
     # Edamam Meal Planner API
     EDAMAM_MEAL_APP_ID: str = ""
     EDAMAM_MEAL_APP_KEY: str = ""
+    EDAMAM_RECIPE_URL: str = "https://api.edamam.com/api/recipes/v2"
 
     # Application
     DEBUG: bool = False
+    CORS_ORIGINS: str = "*"
 
     class Config:
         env_file = ".env"

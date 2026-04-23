@@ -48,6 +48,10 @@ Configure your database and application settings:
 POSTGRES_USER=mindiff_user
 POSTGRES_PASSWORD=your_secure_password
 POSTGRES_DB=mindiff
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+# Optional (if set, this takes precedence)
+DATABASE_URL=postgresql://mindiff_user:your_password@localhost:5432/mindiff
 
 # JWT Configuration
 SECRET_KEY=your-very-long-and-secure-secret-key-here
@@ -57,13 +61,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # Edamam Nutrition API (optional)
 EDAMAM_APP_ID=your_edamam_app_id
 EDAMAM_APP_KEY=your_edamam_app_key
+EDAMAM_NUTRITION_URL=https://api.edamam.com/api/nutrition-details
 
 # Edamam Meal Planner API (optional)
 EDAMAM_MEAL_APP_ID=your_meal_app_id
 EDAMAM_MEAL_APP_KEY=your_meal_app_key
+EDAMAM_RECIPE_URL=https://api.edamam.com/api/recipes/v2
 
 # Application Settings
 DEBUG=False
+CORS_ORIGINS=http://localhost:3000,http://localhost:8080
 
 # Vault Integration (optional)
 VAULT_ADDR=https://vault.example.com
@@ -91,8 +98,15 @@ GRANT CREATE ON SCHEMA public TO mindiff_user;
 \q
 ```
 
-Update `.env`:
+Update `.env` (either explicit host/port or a full URL):
 ```env
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=mindiff
+POSTGRES_USER=mindiff_user
+POSTGRES_PASSWORD=your_password
+
+# Optional override
 DATABASE_URL=postgresql://mindiff_user:your_password@localhost:5432/mindiff
 ```
 
@@ -318,8 +332,8 @@ pytest -m "not slow"
 - Should be sent in `Authorization: Bearer <token>` header
 
 ### CORS
-- Currently allows all origins (`allow_origins=["*"]`)
-- **⚠️ Restrict in production** to specific domains
+- Controlled via `CORS_ORIGINS` (comma-separated origins)
+- Example: `CORS_ORIGINS=https://app.example.com,https://admin.example.com`
 
 ### Validation
 - Email validation via `email-validator`
