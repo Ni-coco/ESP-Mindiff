@@ -67,10 +67,6 @@ dev_dependencies:
   bloc_test: ^9.1.7
   mocktail: ^1.0.4
 
-dependency_overrides:
-  flutter_tts:
-    path: third_party/flutter_tts
-
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
