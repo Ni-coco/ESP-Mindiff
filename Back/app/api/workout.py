@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_active_user, get_db
 from app.models.user import User
-from app.schemas.workout import CustomWorkoutCreate, CustomWorkoutOut, WorkoutWeekOut
+from app.schemas.workout import (
+    CustomWorkoutCreate,
+    CustomWorkoutOut,
+    PinWorkoutRequest,
+    WorkoutWeekOut,
+)
 from app.services import workout as service
 
 router = APIRouter(prefix="/user", tags=["workout"])
@@ -30,13 +35,13 @@ def get_current_workout(
 @router.post("/{user_id}/workout/current/pin", response_model=WorkoutWeekOut)
 def pin_workout(
     user_id: int,
-    workout_week_id: int,
+    body: PinWorkoutRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     """Épingle le plan de la semaine pour qu'il ne soit pas écrasé."""
     _check_access(current_user, user_id)
-    ww = service.pin_workout_week(db, workout_week_id, user_id)
+    ww = service.pin_workout_week(db, body.workout_week_id, user_id)
     if not ww:
         raise HTTPException(status_code=404, detail="Workout introuvable")
     return ww
@@ -65,7 +70,9 @@ def list_custom_workouts(
     return service.list_custom_workouts(db, user_id)
 
 
-@router.post("/{user_id}/workout/custom", response_model=CustomWorkoutOut, status_code=201)
+@router.post(
+    "/{user_id}/workout/custom", response_model=CustomWorkoutOut, status_code=201
+)
 def create_custom_workout(
     user_id: int,
     body: CustomWorkoutCreate,

@@ -32,26 +32,27 @@ MEAL_DISTRIBUTION: dict[str, float] = {
 
 # Requêtes Edamam par objectif
 _QUERIES: dict[str, list[str]] = {
-    "lose_weight":       ["chicken salad", "vegetable soup", "grilled fish"],
-    "build_muscle":      ["chicken rice", "beef steak", "salmon"],
+    "lose_weight": ["chicken salad", "vegetable soup", "grilled fish"],
+    "build_muscle": ["chicken rice", "beef steak", "salmon"],
     "increase_strength": ["steak", "tuna pasta", "chicken potato"],
     "improve_endurance": ["pasta", "oatmeal", "rice chicken"],
-    "general_fitness":   ["chicken", "fish vegetables", "turkey"],
-    "maintain":          ["chicken", "fish", "pasta"],
+    "general_fitness": ["chicken", "fish vegetables", "turkey"],
+    "maintain": ["chicken", "fish", "pasta"],
 }
 _DEFAULT_QUERIES = ["chicken", "fish", "pasta"]
 
 # Diet labels Edamam par objectif
 _DIET_LABELS: dict[str, str] = {
-    "lose_weight":       "low-fat",
-    "build_muscle":      "high-protein",
+    "lose_weight": "low-fat",
+    "build_muscle": "high-protein",
     "increase_strength": "high-protein",
     "improve_endurance": "balanced",
-    "general_fitness":   "balanced",
-    "maintain":          "balanced",
+    "general_fitness": "balanced",
+    "maintain": "balanced",
 }
 
 # ── TDEE ─────────────────────────────────────────────────────────────────────
+
 
 def _calculate_tdee(user: User) -> float:
     metrics = user.user_metrics[0] if user.user_metrics else None
@@ -62,7 +63,7 @@ def _calculate_tdee(user: User) -> float:
     height = float(metrics.height)
     age = float(metrics.age)
     gender = (user.gender or "male").lower()
-    sessions = user.sessions_per_week or 3
+    sessions = user.sessions_per_week if user.sessions_per_week is not None else 3
 
     bmr = 10 * weight + 6.25 * height - 5 * age
     bmr += 5 if gender == "male" else -161
@@ -80,6 +81,7 @@ def _calculate_tdee(user: User) -> float:
 
 
 # ── Edamam ────────────────────────────────────────────────────────────────────
+
 
 def _fetch_recipe(query: str, user_id: int, target_cal: int) -> dict | None:
     """
@@ -120,22 +122,28 @@ def _fetch_recipe(query: str, user_id: int, target_cal: int) -> dict | None:
             return None
 
         # Prend un résultat aléatoire parmi les 5 premiers pour varier
-        pick = random.choice(hits[:min(5, len(hits))])
+        pick = random.choice(hits[: min(5, len(hits))])
         recipe = pick["recipe"]
         nutrients = recipe.get("totalNutrients", {})
         servings = max(1, recipe.get("yield", 4))
 
         return {
-            "label":            recipe.get("label", "Recette"),
-            "calories":         round(recipe.get("calories", 0) / servings),
-            "protein_g":        round(nutrients.get("PROCNT", {}).get("quantity", 0) / servings, 1),
-            "fat_g":            round(nutrients.get("FAT",    {}).get("quantity", 0) / servings, 1),
-            "carbs_g":          round(nutrients.get("CHOCDF", {}).get("quantity", 0) / servings, 1),
-            "fiber_g":          round(nutrients.get("FIBTG",  {}).get("quantity", 0) / servings, 1),
-            "servings":         servings,
-            "image_url":        recipe.get("image"),
-            "recipe_url":       recipe.get("url", ""),
-            "source":           recipe.get("source", ""),
+            "label": recipe.get("label", "Recette"),
+            "calories": round(recipe.get("calories", 0) / servings),
+            "protein_g": round(
+                nutrients.get("PROCNT", {}).get("quantity", 0) / servings, 1
+            ),
+            "fat_g": round(nutrients.get("FAT", {}).get("quantity", 0) / servings, 1),
+            "carbs_g": round(
+                nutrients.get("CHOCDF", {}).get("quantity", 0) / servings, 1
+            ),
+            "fiber_g": round(
+                nutrients.get("FIBTG", {}).get("quantity", 0) / servings, 1
+            ),
+            "servings": servings,
+            "image_url": recipe.get("image"),
+            "recipe_url": recipe.get("url", ""),
+            "source": recipe.get("source", ""),
             "ingredient_lines": recipe.get("ingredientLines", []),
         }
     except Exception:
@@ -143,6 +151,7 @@ def _fetch_recipe(query: str, user_id: int, target_cal: int) -> dict | None:
 
 
 # ── Point d'entrée ────────────────────────────────────────────────────────────
+
 
 def get_meal_suggestions(db: Session, user_id: int) -> dict:
     user = db.query(User).filter(User.id == user_id).first()
@@ -190,8 +199,8 @@ def get_meal_suggestions(db: Session, user_id: int) -> dict:
             suggestions.append({"meal_type": slot, **recipe})
 
     return {
-        "tdee":           tdee,
+        "tdee": tdee,
         "consumed_today": consumed,
-        "remaining":      remaining,
-        "suggestions":    suggestions,
+        "remaining": remaining,
+        "suggestions": suggestions,
     }

@@ -19,6 +19,11 @@ def get_meal_suggestions(
     Calcule le TDEE, soustrait les calories déjà consommées aujourd'hui,
     et appelle Edamam Recipe Search pour les slots repas restants.
     """
+    # Check if user exists first
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
     if current_user.id != user_id and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Accès refusé")
     try:

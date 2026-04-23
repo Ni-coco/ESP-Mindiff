@@ -12,16 +12,19 @@ class Program(BaseModel):
     difficulty: DifficultyLevel
     calorie_burn: int
     duration: int
-    exercises: list[Exercise]
+    exercises: list[Exercise] = []
 
 
 class ProgramCreate(Program):
     pass
 
 
-class ProgramUpdate(Program):
-    id: int
-    pass
+class ProgramUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    difficulty: DifficultyLevel | None = None
+    calorie_burn: int | None = None
+    duration: int | None = None
 
 
 class ProgramResponse(Program):

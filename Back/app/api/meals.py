@@ -1,4 +1,5 @@
 import datetime
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -6,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_active_user, get_db
 from app.models.user import User
 from app.schemas.meal import AddMealRequest, DailyMealsResponse, MealResponse
-from app.services import edamam, meal_log as service
+from app.services import edamam
+from app.services import meal_log as service
 
 router = APIRouter(prefix="/user", tags=["meals"])
 
@@ -33,9 +35,13 @@ def add_meal(
         try:
             nutrition = edamam.analyze_nutrition(body.description)
         except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=502, detail=f"Erreur Edamam : {e.response.text}")
+            raise HTTPException(
+                status_code=503, detail=f"Erreur Edamam : {e.response.text}"
+            )
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Erreur interne : {type(e).__name__}: {e}")
+            raise HTTPException(
+                status_code=503, detail=f"Erreur interne : {type(e).__name__}: {e}"
+            )
 
     entry = service.add_meal(
         db=db,

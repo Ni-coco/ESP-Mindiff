@@ -15,8 +15,8 @@ Reps :
 Cardio : toujours sauf build_muscle / increase_strength
 """
 
-import random
 import datetime
+import random
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -32,8 +32,25 @@ from app.models.workout import (
 
 # ── Mapping split → targets musculaires ───────────────────────────────────────
 
-_UPPER_TARGETS = ["pectorals", "delts", "lats", "upper back", "biceps", "triceps", "traps", "forearms"]
-_LOWER_TARGETS = ["quads", "hamstrings", "glutes", "calves", "adductors", "abductors", "abs"]
+_UPPER_TARGETS = [
+    "pectorals",
+    "delts",
+    "lats",
+    "upper back",
+    "biceps",
+    "triceps",
+    "traps",
+    "forearms",
+]
+_LOWER_TARGETS = [
+    "quads",
+    "hamstrings",
+    "glutes",
+    "calves",
+    "adductors",
+    "abductors",
+    "abs",
+]
 _ALL_TARGETS = _UPPER_TARGETS + _LOWER_TARGETS
 
 SPLITS: dict[int, list[tuple[str, list[str]]]] = {
@@ -64,6 +81,7 @@ SPLITS: dict[int, list[tuple[str, list[str]]]] = {
 
 # ── Durée et nombre d'exercices par session ────────────────────────────────────
 
+
 def _session_config(sessions: int) -> tuple[int, int]:
     """Retourne (duration_minutes, nb_strength_exercises)."""
     if sessions == 1:
@@ -72,7 +90,9 @@ def _session_config(sessions: int) -> tuple[int, int]:
         return 60, 7
     return 45, 4
 
+
 # ── Sets / reps selon objectif ────────────────────────────────────────────────
+
 
 def _reps_config(goal: Optional[str]) -> tuple[int, int, int]:
     """Retourne (sets, reps_min, reps_max)."""
@@ -80,10 +100,13 @@ def _reps_config(goal: Optional[str]) -> tuple[int, int, int]:
         return 3, 12, 20
     return 3, 8, 12
 
+
 def _has_cardio(goal: Optional[str]) -> bool:
     return goal not in ("build_muscle", "increase_strength")
 
+
 # ── Requêtes DB ───────────────────────────────────────────────────────────────
+
 
 def _get_strength_exercises(db: Session, targets: list[str]) -> list[Exercise]:
     return (
@@ -93,23 +116,33 @@ def _get_strength_exercises(db: Session, targets: list[str]) -> list[Exercise]:
         .all()
     )
 
+
 def _get_cardio_exercises(db: Session) -> list[Exercise]:
     return db.query(Exercise).filter(Exercise.body_part == "cardio").all()
 
+
 # ── Génération ────────────────────────────────────────────────────────────────
+
 
 def _iso_week(date: datetime.date) -> tuple[int, int]:
     iso = date.isocalendar()
     return iso.year, iso.week
 
 
-def generate_workout_week(db: Session, user_id: int, goal: Optional[str], sessions_per_week: int) -> WorkoutWeek:
+def generate_workout_week(
+    db: Session,
+    user_id: int,
+    goal: Optional[str],
+    sessions_per_week: int,
+    rng_seed_offset: int = 0,
+) -> WorkoutWeek:
     """Génère et persiste un workout pour la semaine courante."""
     today = datetime.date.today()
     year, week_number = _iso_week(today)
 
-    # Seed déterministe : même résultat pour user + semaine
-    rng = random.Random(user_id * 100_000 + year * 100 + week_number)
+    # Seed déterministe : même résultat pour user + semaine, avec offset optionnel pour la régénération
+    rng_seed = user_id * 100_000 + year * 100 + week_number + rng_seed_offset
+    rng = random.Random(rng_seed)
 
     sessions_count = max(1, min(sessions_per_week, 5))
     split = SPLITS[sessions_count]
@@ -145,35 +178,41 @@ def generate_workout_week(db: Session, user_id: int, goal: Optional[str], sessio
         db.flush()
 
         for pos, ex in enumerate(chosen):
-            db.add(WorkoutSessionExercise(
-                session_id=session.id,
-                exercise_id=ex.id,
-                position=pos,
-                sets=sets,
-                reps_min=reps_min,
-                reps_max=reps_max,
-                is_cardio=False,
-            ))
+            db.add(
+                WorkoutSessionExercise(
+                    session_id=session.id,
+                    exercise_id=ex.id,
+                    position=pos,
+                    sets=sets,
+                    reps_min=reps_min,
+                    reps_max=reps_max,
+                    is_cardio=False,
+                )
+            )
 
         if add_cardio and cardio_pool:
             rng.shuffle(cardio_pool)
             cardio_ex = cardio_pool[0]
-            db.add(WorkoutSessionExercise(
-                session_id=session.id,
-                exercise_id=cardio_ex.id,
-                position=len(chosen),
-                sets=1,
-                reps_min=20,
-                reps_max=30,
-                is_cardio=True,
-            ))
+            db.add(
+                WorkoutSessionExercise(
+                    session_id=session.id,
+                    exercise_id=cardio_ex.id,
+                    position=len(chosen),
+                    sets=1,
+                    reps_min=20,
+                    reps_max=30,
+                    is_cardio=True,
+                )
+            )
 
     db.commit()
     db.refresh(workout)
     return workout
 
 
-def get_or_generate_current_week(db: Session, user_id: int, goal: Optional[str], sessions_per_week: int) -> WorkoutWeek:
+def get_or_generate_current_week(
+    db: Session, user_id: int, goal: Optional[str], sessions_per_week: int
+) -> WorkoutWeek:
     today = datetime.date.today()
     year, week_number = _iso_week(today)
 
@@ -190,8 +229,14 @@ def get_or_generate_current_week(db: Session, user_id: int, goal: Optional[str],
     return generate_workout_week(db, user_id, goal, sessions_per_week)
 
 
-def pin_workout_week(db: Session, workout_week_id: int, user_id: int) -> Optional[WorkoutWeek]:
-    ww = db.query(WorkoutWeek).filter(WorkoutWeek.id == workout_week_id, WorkoutWeek.user_id == user_id).first()
+def pin_workout_week(
+    db: Session, workout_week_id: int, user_id: int
+) -> Optional[WorkoutWeek]:
+    ww = (
+        db.query(WorkoutWeek)
+        .filter(WorkoutWeek.id == workout_week_id, WorkoutWeek.user_id == user_id)
+        .first()
+    )
     if not ww:
         return None
     ww.is_pinned = True
@@ -200,7 +245,9 @@ def pin_workout_week(db: Session, workout_week_id: int, user_id: int) -> Optiona
     return ww
 
 
-def regenerate_workout_week(db: Session, user_id: int, goal: Optional[str], sessions_per_week: int) -> WorkoutWeek:
+def regenerate_workout_week(
+    db: Session, user_id: int, goal: Optional[str], sessions_per_week: int
+) -> WorkoutWeek:
     """Force un nouveau plan pour la semaine (ignore le plan existant non épinglé)."""
     today = datetime.date.today()
     year, week_number = _iso_week(today)
@@ -221,24 +268,31 @@ def regenerate_workout_week(db: Session, user_id: int, goal: Optional[str], sess
     # Décale le seed pour obtenir un résultat différent
     today_offset = datetime.date.today().toordinal()
     rng_offset = today_offset % 97
-    return generate_workout_week(db, user_id + rng_offset * 999_983, goal, sessions_per_week)
+    return generate_workout_week(
+        db, user_id, goal, sessions_per_week, rng_seed_offset=rng_offset * 999_983
+    )
 
 
 # ── Custom workouts ───────────────────────────────────────────────────────────
 
-def create_custom_workout(db: Session, user_id: int, name: str, exercises: list[dict]) -> CustomWorkout:
+
+def create_custom_workout(
+    db: Session, user_id: int, name: str, exercises: list[dict]
+) -> CustomWorkout:
     cw = CustomWorkout(user_id=user_id, name=name)
     db.add(cw)
     db.flush()
     for ex in exercises:
-        db.add(CustomWorkoutExercise(
-            custom_workout_id=cw.id,
-            exercise_id=ex["exercise_id"],
-            position=ex["position"],
-            sets=ex["sets"],
-            reps_min=ex["reps_min"],
-            reps_max=ex["reps_max"],
-        ))
+        db.add(
+            CustomWorkoutExercise(
+                custom_workout_id=cw.id,
+                exercise_id=ex["exercise_id"],
+                position=ex["position"],
+                sets=ex["sets"],
+                reps_min=ex["reps_min"],
+                reps_max=ex["reps_max"],
+            )
+        )
     db.commit()
     db.refresh(cw)
     return cw
@@ -249,7 +303,11 @@ def list_custom_workouts(db: Session, user_id: int) -> list[CustomWorkout]:
 
 
 def delete_custom_workout(db: Session, workout_id: int, user_id: int) -> bool:
-    cw = db.query(CustomWorkout).filter(CustomWorkout.id == workout_id, CustomWorkout.user_id == user_id).first()
+    cw = (
+        db.query(CustomWorkout)
+        .filter(CustomWorkout.id == workout_id, CustomWorkout.user_id == user_id)
+        .first()
+    )
     if not cw:
         return False
     db.delete(cw)

@@ -1,5 +1,6 @@
 import datetime
 from typing import List, Optional
+
 from pydantic import BaseModel
 
 from app.schemas.exercise import ExerciseShort
@@ -71,3 +72,7 @@ class CustomWorkoutOut(BaseModel):
     exercises: List[CustomWorkoutExerciseOut] = []
 
     model_config = {"from_attributes": True}
+
+
+class PinWorkoutRequest(BaseModel):
+    workout_week_id: int

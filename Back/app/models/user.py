@@ -2,7 +2,19 @@ import datetime
 import enum
 
 import sqlalchemy.orm as sqlo
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 
 from app.db.database import Base
 
@@ -45,12 +57,16 @@ class User(Base):
     gender: sqlo.Mapped[str | None] = sqlo.mapped_column(String, nullable=True)
     sport_objective: sqlo.Mapped[str | None] = sqlo.mapped_column(String, nullable=True)
     target_weight: sqlo.Mapped[float | None] = sqlo.mapped_column(Float, nullable=True)
-    sessions_per_week: sqlo.Mapped[int | None] = sqlo.mapped_column(Integer, nullable=True)
-    health_considerations: sqlo.Mapped[str | None] = sqlo.mapped_column(String, nullable=True)
+    sessions_per_week: sqlo.Mapped[int | None] = sqlo.mapped_column(
+        Integer, nullable=True
+    )
+    health_considerations: sqlo.Mapped[str | None] = sqlo.mapped_column(
+        String, nullable=True
+    )
 
     # Relationships
     user_metrics: sqlo.Relationship[list[UserMetrics]] = sqlo.relationship(
-        back_populates="user"
+        back_populates="user", cascade="all, delete-orphan"
     )
     weight_logs: sqlo.Relationship[list["WeightLog"]] = sqlo.relationship(
         back_populates="user", cascade="all, delete-orphan", order_by="WeightLog.date"
@@ -73,7 +89,9 @@ class WeightLog(Base):
     )
     date: sqlo.Mapped[datetime.date] = sqlo.mapped_column(Date, nullable=False)
     weight: sqlo.Mapped[float] = sqlo.mapped_column(Float, nullable=False)
-    source: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False, default="manual")
+    source: sqlo.Mapped[str] = sqlo.mapped_column(
+        String, nullable=False, default="manual"
+    )
 
     user: sqlo.Mapped["User"] = sqlo.relationship(back_populates="weight_logs")
 

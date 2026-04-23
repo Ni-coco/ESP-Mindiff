@@ -1,6 +1,7 @@
 import datetime
-from sqlalchemy.orm import Session
+
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
 from app.models.user import WeightLog
 
@@ -25,8 +26,9 @@ def add_weight_entry(
         .returning(WeightLog)
     )
     result = db.execute(stmt)
+    entry = result.scalar_one()
     db.commit()
-    return result.scalar_one()
+    return entry
 
 
 def get_weight_history(db: Session, user_id: int) -> list[dict]:
@@ -59,18 +61,22 @@ def get_weight_history(db: Session, user_id: int) -> list[dict]:
         if current in real_by_date:
             entry = real_by_date[current]
             last_weight = entry.weight
-            result.append({
-                "date": current,
-                "weight": last_weight,
-                "source": entry.source,
-            })
+            result.append(
+                {
+                    "date": current,
+                    "weight": last_weight,
+                    "source": entry.source,
+                }
+            )
         else:
             # Carry-forward : on propage le dernier poids connu
-            result.append({
-                "date": current,
-                "weight": last_weight,
-                "source": "carried_forward",
-            })
+            result.append(
+                {
+                    "date": current,
+                    "weight": last_weight,
+                    "source": "carried_forward",
+                }
+            )
         current += datetime.timedelta(days=1)
 
     return result
