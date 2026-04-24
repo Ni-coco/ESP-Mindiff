@@ -85,19 +85,14 @@ class _CameraPageState extends State<CameraPage>
   }
 
   int _initialIndexFromActiveProgramme() {
-    try {
-      final ctrl = Get.find<ActiveProgrammeController>();
-      final data = ctrl.activeProgramme.value;
-      final seance = data?.seanceEnCours;
-      if (seance == null) return 0;
-      final pending = data!.exercices.firstWhere(
-        (e) => !(seance.progressions[e.analyzerKey]?.estTermine(e) ?? false),
-        orElse: () => data.exercices.first,
-      );
-      return kAnalyzerKeyToIndex[pending.analyzerKey] ?? 0;
-    } catch (_) {
-      return 0;
-    }
+    final data = Get.find<ActiveProgrammeController>().activeProgramme.value;
+    final seance = data?.seanceEnCours;
+    if (data == null || seance == null) return 0;
+    final pending = data.exercices.firstWhere(
+      (e) => !(seance.progressions[e.analyzerKey]?.estTermine(e) ?? false),
+      orElse: () => data.exercices.first,
+    );
+    return kAnalyzerKeyToIndex[pending.analyzerKey] ?? 0;
   }
 
   Future<void> _initTts() async {
