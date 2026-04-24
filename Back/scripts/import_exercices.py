@@ -13,11 +13,15 @@ from app.models.exercise import Exercise, Instruction, SecondaryMuscle
 
 
 def _resolve_gif_url(raw_url: str | None) -> str | None:
-    """Remplace le placeholder {API_BASE_URL} par la variable d'environnement."""
+    """
+    Remplace le placeholder {API_BASE_URL} par la base API.
+    Si le JSON pointe vers .../api/static/gifs/..., on corrige vers .../static/gifs/...
+    """
     if not raw_url:
         return raw_url
     api_base = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
-    return raw_url.replace("{API_BASE_URL}", api_base)
+    resolved = raw_url.replace("{API_BASE_URL}", api_base)
+    return resolved.replace("/api/static/gifs/", "/static/gifs/")
 
 
 def create_tables():

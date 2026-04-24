@@ -66,7 +66,7 @@ def migrate(dry_run: bool = False) -> None:
             )
             return
 
-        print(f"Exercices à migrer : {len(rows)}")
+        print(f"Exercices Firebase à migrer : {len(rows)}")
 
         updated = 0
         errors = 0
@@ -89,10 +89,31 @@ def migrate(dry_run: bool = False) -> None:
                 )
             updated += 1
 
+        api_static_rows = conn.execute(
+            text("SELECT id, gif_url FROM exercise WHERE gif_url LIKE '%/api/static/gifs/%'")
+        ).fetchall()
+        print(f"Exercices '/api/static' à corriger : {len(api_static_rows)}")
+
+        normalized = 0
+        for exercise_id, gif_url in api_static_rows:
+            new_url = gif_url.replace("/api/static/gifs/", "/static/gifs/")
+            if dry_run:
+                print(f"  [DRY] {exercise_id} : {gif_url} → {new_url}")
+            else:
+                conn.execute(
+                    text("UPDATE exercise SET gif_url = :url WHERE id = :id"),
+                    {"url": new_url, "id": exercise_id},
+                )
+            normalized += 1
+
         if not dry_run:
             conn.commit()
 
-    print(f"\n{'[DRY RUN] ' if dry_run else ''}✅ {updated} URLs migrées, {errors} erreurs.")
+    total_updated = updated + normalized
+    print(
+        f"\n{'[DRY RUN] ' if dry_run else ''}✅ {total_updated} URLs mises à jour "
+        f"(firebase: {updated}, normalisées: {normalized}), {errors} erreurs."
+    )
 
 
 if __name__ == "__main__":
