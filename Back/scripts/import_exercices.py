@@ -57,19 +57,18 @@ def import_exercices(json_file_path: str):
                 # Create exercise object
                 exercice = Exercise(
                     id=exercice_data.get("id"),
-                    title=exercice_data.get("name"),
-                    description=None,  # Pas de description dans le JSON
+                    name=exercice_data.get("name"),
                     equipment=exercice_data.get("equipment"),
-                    gif=exercice_data.get("gifUrl"),
+                    gif_url=exercice_data.get("gifUrl"),
                     body_part=exercice_data.get("bodyPart"),
                     target=exercice_data.get("target"),
                 )
 
                 # Ajouter les instructions
                 instructions = exercice_data.get("instructions", [])
-                for instruction_text in instructions:
+                for order, instruction_text in enumerate(instructions, start=1):
                     instruction = Instruction(
-                        description=instruction_text, exercise_id=exercice.id
+                        step_order=order, text=instruction_text, exercise_id=exercice.id
                     )
                     exercice.instructions.append(instruction)
 
