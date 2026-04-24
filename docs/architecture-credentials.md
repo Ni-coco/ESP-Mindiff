@@ -1,191 +1,247 @@
-# Mindiff - Architecture & Credentials
+# Mindiff — Architecture & Credentials
 
-Derniere mise a jour : 24 avril 2026
+> Dernière mise à jour : 24 avril 2026
+
+---
 
 ## Serveur (VM Proxmox)
 
-| Parametre | Valeur |
-| --- | --- |
+| Paramètre | Valeur |
+|---|---|
+| IP locale | `192.168.1.21` |
 | IP publique | `82.66.211.8` |
 | OS | Ubuntu 24 |
-| Disque | 111G total / 17G utilise / 89G libre |
-| SSH | `<ssh-hostname>` |
+| Disque | 111G total / 17G utilisé / 89G libre |
+| SSH | `mindssh.nini.network` |
+
+---
 
 ## Infrastructure Docker (Swarm)
 
-| Service | Image | Role |
-| --- | --- | --- |
-| Traefik | `traefik:v3.6.7` | Reverse proxy - ports 80 / 443 |
+| Service | Image | Rôle |
+|---|---|---|
+| Traefik | `traefik:v3.6.7` | Reverse proxy · ports 80 / 443 |
 | Dokploy | `dokploy/dokploy:v0.29.1` | Deployment platform |
 | dokploy-postgres | `postgres:16` | DB interne Dokploy |
 | dokploy-redis | `redis:7` | Cache interne Dokploy |
 
+---
+
 ## Cloudflare Tunnel
 
-| Parametre | Valeur |
-| --- | --- |
-| Tunnel ID | `<cloudflare-tunnel-id>` |
+| Paramètre | Valeur |
+|---|---|
+| Tunnel ID | `f944bda8-f625-4855-a08e-8b011cd76c89` |
 | Config | `/etc/cloudflared/config.yml` |
-| Credentials | `/etc/cloudflared/<tunnel-id>.json` |
+| Credentials | `/etc/cloudflared/f944bda8-f625-4855-a08e-8b011cd76c89.json` |
 | Protocol | `http2` |
 | Service systemd | `cloudflared.service` |
 
-## Routes Cloudflare
+### Routes Cloudflare
 
 | Hostname | Service | Notes |
-| --- | --- | --- |
-| `<dokploy-domain>` | `localhost:3000` | Dokploy UI |
-| `<api-dev-domain>` | `localhost:80` | API dev |
-| `<adminer-dev-domain>` | `localhost:80` | Adminer dev |
-| `<app-dev-domain>` | `localhost:80` | App dev (Flutter) |
-| `<api-prod-domain>` | `localhost:80` | API prod |
-| `<adminer-prod-domain>` | `localhost:80` | Adminer prod |
-| `<app-prod-domain>` | `localhost:80` | App prod (Flutter) |
-| `<landing-domain>` | `localhost:80` | Site vitrine |
-| `<ssh-domain>` | `localhost:22` | SSH |
+|---|---|---|
+| `dokdiff.nini.network` | `localhost:3000` | Dokploy UI |
+| `apidev.nini.network` | `localhost:80` | API dev |
+| `adminerdev.nini.network` | `localhost:80` | Adminer dev |
+| `mindev.nini.network` | `localhost:80` | App dev (Flutter) |
+| `api.nini.network` | `localhost:80` | API prod |
+| `adminer.nini.network` | `localhost:80` | Adminer prod |
+| `mindiff.nini.network` | `localhost:80` | App prod (Flutter) |
+| `mind.nini.network` | `localhost:80` | Site vitrine |
+| `mindssh.nini.network` | `localhost:22` | SSH |
+
+---
 
 ## Dokploy
 
-| Parametre | Valeur |
-| --- | --- |
-| URL | `https://<dokploy-domain>` |
-| Acces local | `http://<private-lan-ip>:3000` |
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://dokdiff.nini.network` |
+| Accès local | `http://192.168.1.21:3000` |
 | Version | `v0.29.1` |
-| Server Domain | `<dokploy-domain>` |
+| Server Domain | `dokdiff.nini.network` |
+
+---
 
 ## Environnement DEV
 
 ### Backend (FastAPI)
 
-| Parametre | Valeur |
-| --- | --- |
-| URL | `https://<api-dev-domain>` |
-| Docs Swagger | `https://<api-dev-domain>/docs` |
-| Health check | `https://<api-dev-domain>/health` |
-| Framework | FastAPI - Python 3.11 |
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://apidev.nini.network` |
+| Docs Swagger | `https://apidev.nini.network/docs` |
+| Health check | `https://apidev.nini.network/health` |
+| Framework | FastAPI · Python 3.11 |
 | Port interne | `8000` |
 | Branche | `dev` |
 | Dockerfile | `Back/Dockerfile` |
 | Docker context | `Back` |
 
-#### Variables d'environnement (dev)
+#### Variables d'environnement
 
 ```env
 POSTGRES_USER=mindiff_user
 POSTGRES_PASSWORD=mindiff_password
-POSTGRES_DB=<db-name>
-POSTGRES_HOST=<db-host-dev>
+POSTGRES_DB=mindiff_db
+POSTGRES_HOST=mindiff-database-dev-j9ckf3
 POSTGRES_PORT=5432
-DATABASE_URL=postgresql://mindiff_user:mindiff_password@<db-host-dev>:5432/<db-name>
+DATABASE_URL=postgresql://mindiff_user:mindiff_password@mindiff-database-dev-j9ckf3:5432/mindiff_db
 
-SECRET_KEY=<secret-key>
+SECRET_KEY=ed3863ef4244cf9a81eba6b8e1cb640f0537576398d649f7804381ca40678ac9
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 DEBUG=True
-CORS_ORIGINS=https://<app-dev-domain>
+CORS_ORIGINS=https://mindev.nini.network
 ```
 
-### Base de donnees dev
+### Base de données dev
 
-| Parametre | Valeur |
-| --- | --- |
-| Host interne | `<db-host-dev>` |
+| Paramètre | Valeur |
+|---|---|
+| Host interne | `mindiff-database-dev-j9ckf3` |
 | Port | `5432` |
-| Database | `<db-name>` |
+| Database | `mindiff_db` |
 | User | `mindiff_user` |
 | Password | `mindiff_password` |
 | Image Docker | `postgres:16-alpine` |
-| Connection URL | `postgresql://mindiff_user:mindiff_password@<db-host-dev>:5432/<db-name>` |
+| Connection URL | `postgresql://mindiff_user:mindiff_password@mindiff-database-dev-j9ckf3:5432/mindiff_db` |
 
 ### Adminer dev
 
-| Parametre | Valeur |
-| --- | --- |
-| URL | `https://<adminer-dev-domain>` |
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://adminerdev.nini.network` |
 | System | PostgreSQL |
-| Server | `<db-host-dev>` |
+| Server | `mindiff-database-dev-j9ckf3` |
 | User | `mindiff_user` |
 | Password | `mindiff_password` |
-| Database | `<db-name>` |
+| Database | `mindiff_db` |
+
+### App Flutter web (dev)
+
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://mindev.nini.network` |
+| Branche | `dev` |
+| Dockerfile | `App/Dockerfile.web` |
+| Docker context | `App` |
+| Build arg | `API_BASE_URL=https://apidev.nini.network/api` |
+| Port interne | `80` |
+
+---
 
 ## Environnement PROD
 
 ### Backend (FastAPI)
 
-| Parametre | Valeur |
-| --- | --- |
-| URL | `https://<api-prod-domain>` |
-| Docs Swagger | `https://<api-prod-domain>/docs` |
-| Health check | `https://<api-prod-domain>/health` |
-| Framework | FastAPI - Python 3.11 |
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://api.nini.network` |
+| Docs Swagger | `https://api.nini.network/docs` |
+| Health check | `https://api.nini.network/health` |
+| Framework | FastAPI · Python 3.11 |
 | Port interne | `8000` |
 | Branche | `main` |
 | Dockerfile | `Back/Dockerfile` |
 | Docker context | `Back` |
 
-#### Variables d'environnement (prod)
+#### Variables d'environnement
 
 ```env
 POSTGRES_USER=mindiff_user
 POSTGRES_PASSWORD=mindiff_password
-POSTGRES_DB=<db-name>
-POSTGRES_HOST=<db-host-prod>
+POSTGRES_DB=mindiff_db
+POSTGRES_HOST=mindiff-database-zsdxtt
 POSTGRES_PORT=5432
-DATABASE_URL=postgresql://mindiff_user:mindiff_password@<db-host-prod>:5432/<db-name>
+DATABASE_URL=postgresql://mindiff_user:mindiff_password@mindiff-database-zsdxtt:5432/mindiff_db
 
-SECRET_KEY=<secret-key>
+SECRET_KEY=ed3863ef4244cf9a81eba6b8e1cb640f0537576398d649f7804381ca40678ac9
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 DEBUG=False
-CORS_ORIGINS=https://<app-prod-domain>
+CORS_ORIGINS=https://mindiff.nini.network
 ```
 
-### Base de donnees prod
+### Base de données prod
 
-| Parametre | Valeur |
-| --- | --- |
-| Host interne | `<db-host-prod>` |
+| Paramètre | Valeur |
+|---|---|
+| Host interne | `mindiff-database-zsdxtt` |
 | Port | `5432` |
-| Database | `<db-name>` |
+| Database | `mindiff_db` |
 | User | `mindiff_user` |
 | Password | `mindiff_password` |
 | Image Docker | `postgres:16-alpine` |
-| Connection URL | `postgresql://mindiff_user:mindiff_password@<db-host-prod>:5432/<db-name>` |
+| Connection URL | `postgresql://mindiff_user:mindiff_password@mindiff-database-zsdxtt:5432/mindiff_db` |
 
 ### Adminer prod
 
-| Parametre | Valeur |
-| --- | --- |
-| URL | `https://<adminer-prod-domain>` |
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://adminer.nini.network` |
 | System | PostgreSQL |
-| Server | `<db-host-prod>` |
+| Server | `mindiff-database-zsdxtt` |
 | User | `mindiff_user` |
 | Password | `mindiff_password` |
-| Database | `<db-name>` |
+| Database | `mindiff_db` |
 
-## Projet - Structure
+### App Flutter web (prod)
 
-```text
-ESP-Mindiff/
-|-- App/                  # Flutter (Android / iOS / Web)
-|   |-- Dockerfile.web
-|   `-- lib/main.dart
-|-- Back/                 # FastAPI Python 3.11
-|   |-- Dockerfile
-|   |-- app/main.py
-|   |-- alembic/          # Migrations DB
-|   `-- scripts/
-|-- IOT/                  # ESP32 / PlatformIO
-|   `-- Mindiff_Balance/
-`-- web/                  # Site vitrine
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://mindiff.nini.network` |
+| Branche | `main` |
+| Dockerfile | `App/Dockerfile.web` |
+| Docker context | `App` |
+| Build arg | `API_BASE_URL=https://api.nini.network/api` |
+| Port interne | `80` |
+
+---
+
+## Site Vitrine
+
+| Paramètre | Valeur |
+|---|---|
+| URL | `https://mind.nini.network` |
+| Framework | React 19 · Vite · TypeScript |
+| Branche | `website` |
+| Dockerfile | `dockerfile` (racine) |
+| Docker context | `.` |
+| Port interne | `80` |
+| Variables d'env | Aucune |
+
+---
+
+## Projet — Structure
+
 ```
+ESP-Mindiff/
+├── App/                  # Flutter (Android / iOS / Web)
+│   ├── Dockerfile.web
+│   └── lib/main.dart
+├── Back/                 # FastAPI Python 3.11
+│   ├── Dockerfile
+│   ├── app/main.py
+│   ├── alembic/          # Migrations DB
+│   └── scripts/
+├── IOT/                  # ESP32 / PlatformIO
+│   └── Mindiff_Balance/
+└── web/                  # Site vitrine (React + Vite)
+    ├── src/main.tsx
+    ├── package.json
+    └── vite.config.ts
+```
+
+---
 
 ## Migrations Alembic
 
 | Version | Description |
-| --- | --- |
+|---|---|
 | 001 | Add users table |
 | 002 | Add exercise tables |
 | 003 | Add program tables |
