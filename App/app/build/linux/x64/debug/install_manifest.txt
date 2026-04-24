@@ -1,0 +1,14 @@
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/mindiff_app
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/icudtl.dat
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/lib/libflutter_linux_gtk.so
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/kernel_blob.bin
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/AssetManifest.bin
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/FontManifest.json
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/packages/iconsax/lib/assets/fonts/iconsax.ttf
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/NativeAssetsManifest.json
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/version.json
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/NOTICES.Z
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/shaders/ink_sparkle.frag
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/shaders/stretch_effect.frag
+/home/parthiot/delivery/ESP-Mindiff-2/ESP-Mindiff/App/app/build/linux/x64/debug/bundle/data/flutter_assets/fonts/MaterialIcons-Regular.otf
