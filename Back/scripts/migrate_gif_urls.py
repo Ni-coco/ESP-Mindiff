@@ -2,7 +2,7 @@
 Migration : remplace les URLs Firebase Storage par les URLs locales.
 
 Firebase :  https://firebasestorage.googleapis.com/v0/b/.../o/gif_0.gif?alt=media&token=...
-Cible    :  https://apidev.nini.network/static/gifs/gif_0.gif
+Cible    :  <base-url>/static/gifs/gif_0.gif
 
 Usage :
     python -m scripts.migrate_gif_urls
@@ -15,8 +15,8 @@ import re
 import sys
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import ProgrammingError
 
-BASE_URL = "https://apidev.nini.network/static/gifs"
 FIREBASE_PATTERN = re.compile(r"/o/([^?]+)\?")
 
 
@@ -33,13 +33,38 @@ def get_db_url() -> str:
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 
+def get_gif_base_url() -> str:
+    """
+    Resolve la base URL des GIFs:
+    - GIF_BASE_URL si defini (prioritaire)
+    - sinon derive de API_BASE_URL en retirant un eventuel suffixe /api
+    """
+    gif_base_url = os.getenv("GIF_BASE_URL")
+    if gif_base_url:
+        return gif_base_url.rstrip("/")
+
+    api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
+    if api_base_url.endswith("/api"):
+        api_base_url = api_base_url[: -len("/api")]
+    return f"{api_base_url}/static/gifs"
+
+
 def migrate(dry_run: bool = False) -> None:
     engine = create_engine(get_db_url())
+    gif_base_url = get_gif_base_url()
+    print(f"Base URL GIF utilisee: {gif_base_url}")
 
     with engine.connect() as conn:
-        rows = conn.execute(
-            text("SELECT id, gif_url FROM exercises WHERE gif_url LIKE '%firebasestorage%'")
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                text("SELECT id, gif_url FROM exercise WHERE gif_url LIKE '%firebasestorage%'")
+            ).fetchall()
+        except ProgrammingError as exc:
+            print(f"Erreur SQL lors de la lecture des exercices: {exc}")
+            print(
+                "Assure-toi que les migrations Alembic sont appliquees et que la table 'exercise' existe."
+            )
+            return
 
         print(f"Exercices à migrer : {len(rows)}")
 
@@ -53,13 +78,13 @@ def migrate(dry_run: bool = False) -> None:
                 continue
 
             filename = match.group(1)
-            new_url = f"{BASE_URL}/{filename}"
+            new_url = f"{gif_base_url}/{filename}"
 
             if dry_run:
                 print(f"  [DRY] {exercise_id} : {gif_url[:60]}... → {new_url}")
             else:
                 conn.execute(
-                    text("UPDATE exercises SET gif_url = :url WHERE id = :id"),
+                    text("UPDATE exercise SET gif_url = :url WHERE id = :id"),
                     {"url": new_url, "id": exercise_id},
                 )
             updated += 1
