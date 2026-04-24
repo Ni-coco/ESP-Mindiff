@@ -1,207 +1,196 @@
-#include <Wire.h>
-#include "HX711.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+#include <Arduino.h>
+#include <ArduinoJson.h>
 
-// HX711
-const int LOADCELL_DOUT_PIN = 16;
-const int LOADCELL_SCK_PIN = 4;
+#include "Scale.h"
+#include "Display.h"
+#include "WifiManager.h"
+#include "ApiClient.h"
+#include "ConfigManager.h"
+#include "BalanceStatus.h"
 
-HX711 scale;
+#include "GlobalState.h"
+#include "AppState.h"
+#include "tasks/TaskDisplay.h"
+#include "tasks/TaskScale.h"
+#include "tasks/TaskApi.h"
+#include "tasks/TaskBle.h"
+#include "tasks/TaskCalibration.h"
 
-// OLED
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+// ─── Config hardware ──────────────────────────────────────────────────────────
+static const int PIN_DOUT = 13;
+static const int PIN_SCK  = 14;
 
-float calibration_factor = 1000.0;
+// ─── Objets hardware ─────────────────────────────────────────────────────────
+static Scale         scale(PIN_DOUT, PIN_SCK);
+static Display       display;
+static WifiManager   wifi;
+static ConfigManager configMgr;
+static ApiClient*    api = nullptr;
 
-// BLE UUIDs (uniques pour ton app)
-#define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
-#define CHARACTERISTIC_UUID "abcd1234-ab12-cd34-ef56-abcdef123456"
+// ─── Démarre toutes les tâches opérationnelles ────────────────────────────────
+static void startOperationalTasks() {
+    startTaskScale(&scale);
+    startTaskApi(&api);
+    startTaskCalibration(&scale, &display, &configMgr);
 
-BLEServer* pServer = nullptr;
-BLECharacteristic* pCharacteristic = nullptr;
-bool deviceConnected = false;
-
-// Callbacks connexion BLE
-class MyServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
-    display.fillRect(0, 56, SCREEN_WIDTH, 8, SSD1306_BLACK);
-    display.setTextSize(1);
-    display.setCursor(0, 56);
-    display.println("BLE: Connecte");
-    display.display();
-  }
-  void onDisconnect(BLEServer* pServer) {
-    deviceConnected = false;
-    pServer->startAdvertising(); // relance l'advertising
-    display.fillRect(0, 56, SCREEN_WIDTH, 8, SSD1306_BLACK);
-    display.setTextSize(1);
-    display.setCursor(0, 56);
-    display.println("BLE: Attente...");
-    display.display();
-  }
-};
-
-void printHelp() {
-  display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.println("t:tare c:cal +:+ -:-");
-  display.display();
+    gState.update([](BalanceStatus& s) {
+        s.state  = BalanceState::OPERATIONAL;
+        s.wifiOk = true;
+    });
+    Serial.println("[Boot] Mode operationnel");
 }
 
+// ─── Parse et sauvegarde les credentials reçus via BLE ou Serial ─────────────
+static bool applyCredentials(const char* json) {
+    StaticJsonDocument<512> doc;
+    if (deserializeJson(doc, json) != DeserializationError::Ok) {
+        Serial.println("[Boot] JSON invalide");
+        return false;
+    }
+
+    const char* ssid   = doc["ssid"]     | "";
+    const char* pass   = doc["password"] | "";
+    const char* token  = doc["token"]    | "";
+    const char* apiUrl = doc["api_url"]  | "";
+    int         userId = doc["user_id"]  | -1;
+
+    if (!ssid[0] || !token[0] || !apiUrl[0] || userId < 0) {
+        Serial.println("[Boot] Champs manquants dans le JSON");
+        return false;
+    }
+
+    Config cfg;
+    cfg.ssid        = ssid;
+    cfg.password    = pass;
+    cfg.token       = token;
+    cfg.apiUrl      = apiUrl;
+    cfg.userId      = userId;
+    cfg.calibFactor = scale.getCalibrationFactor(); // conserve la calib actuelle
+    configMgr.save(cfg);
+    return true;
+}
+
+// ─── Setup ────────────────────────────────────────────────────────────────────
 void setup() {
-  Serial.begin(115200);
-  delay(10);
+    Serial.begin(115200);
+    Serial.println("=== Balance boot ===");
 
-  // Init scale
-  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-  scale.set_scale(calibration_factor);
-  scale.tare();
+    // 1. Init FreeRTOS (avant de créer des tâches)
+    gState.init();
+    initAppState();
 
-  // Init display
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("SSD1306 allocation failed");
-  }
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("Balance initialisee");
-  display.display();
-  delay(500);
+    // 2. Init hardware avec le facteur de calibration sauvegardé si dispo
+    const float calibFactor = configMgr.load() ? configMgr.get().calibFactor : 1000.0f;
+    scale.begin(calibFactor);
+    Serial.printf("[Boot] Scale OK (calib: %.1f)\n", calibFactor);
 
-  // Init BLE
-  BLEDevice::init("Balance-ESP32");
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
+    if (!display.begin()) Serial.println("[Boot] Display FAIL");
+    else                  Serial.println("[Boot] Display OK");
 
-  BLEService* pService = pServer->createService(SERVICE_UUID);
-  pCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharacteristic->addDescriptor(new BLE2902());
-  pService->start();
+    // 3. TaskDisplay démarre immédiatement (montre la progression du boot)
+    startTaskDisplay(&display);
 
-  BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->start();
+    // ── 4. Credentials en NVS → connexion directe ────────────────────────────
+    if (configMgr.isProvisioned()) {
+        const Config& cfg = configMgr.get();
+        gState.update([&cfg](BalanceStatus& s) {
+            s.state = BalanceState::CONNECTING;
+            s.ssid  = cfg.ssid;
+        });
 
-  display.setCursor(0, 10);
-  display.println("BLE: Attente...");
-  display.display();
-  delay(500);
-  printHelp();
-}
+        Serial.printf("[Boot] Connexion à %s...\n", cfg.ssid.c_str());
+        if (wifi.connect(cfg.ssid, cfg.password)) {
+            api = new ApiClient(cfg.apiUrl, cfg.token, cfg.userId);
+            startOperationalTasks();
+            return;
+        }
 
-void loop() {
-  if (!scale.is_ready()) {
-    Serial.println("HX711 not found.");
-    delay(1000);
-    return;
-  }
+        Serial.println("[Boot] WiFi echec → reset config");
+        configMgr.clear();
+    }
 
-  float weight_g = scale.get_units(10);
-  float weight_kg = weight_g / 1000.0;
+    // ── 5. Provisioning : fenêtre Serial 5s ──────────────────────────────────
+    gState.update([](BalanceStatus& s) {
+        s.state       = BalanceState::PROVISIONING;
+        s.serialReady = true;
+        s.bleReady    = false;
+    });
 
-  // Envoie le poids via BLE
-  if (deviceConnected) {
-    String weightStr = String(weight_kg, 3);
-    pCharacteristic->setValue(weightStr.c_str());
-    pCharacteristic->notify();
-  }
+    Serial.println("[Boot] Envoie le JSON dans les 5s :");
+    Serial.println("{\"ssid\":\"...\",\"password\":\"...\",\"token\":\"...\",\"api_url\":\"...\",\"user_id\":1}");
 
-  // Affichage OLED
-  display.fillRect(0, 0, SCREEN_WIDTH, 36, SSD1306_BLACK);
-  display.setTextSize(2);
-  display.setCursor(0, 0);
-  display.print(weight_kg, 3);
-  display.println(" kg");
-  display.setTextSize(1);
-  display.setCursor(0, 30);
-  display.print("Cal: ");
-  display.println(calibration_factor, 1);
-  display.display();
-
-  // Commandes Serial
-  if (Serial.available()) {
-    char c = Serial.read();
-    if (c == 't') {
-      scale.tare();
-      display.fillRect(20, 18, 88, 12, SSD1306_BLACK);
-      display.setTextSize(1);
-      display.setCursor(24, 20);
-      display.println("Tare: done");
-      display.display();
-      delay(800);
-    } else if (c == '+') {
-      calibration_factor *= 0.95;
-      scale.set_scale(calibration_factor);
-    } else if (c == '-') {
-      calibration_factor *= 1.05;
-      scale.set_scale(calibration_factor);
-    } else if (c == 'c') {
-      unsigned long start = millis();
-      const unsigned long timeout = 15000;
-      String buf = "";
-      display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-      display.setTextSize(1);
-      display.setCursor(0, 36);
-      display.println("Calibrate:");
-      display.println("Place known weight");
-      display.println("Type grams within 15s");
-      display.display();
-      while (millis() - start < timeout) {
-        while (Serial.available()) {
-          char ch = Serial.read();
-          if (ch == '\r') continue;
-          if (ch == '\n') {
-            float known = buf.toFloat();
-            if (known > 0.0) {
-              long raw = scale.read_average(20);
-              float newCal = (float)raw / known;
-              calibration_factor = newCal;
-              scale.set_scale(calibration_factor);
-              display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-              display.setCursor(0, 36);
-              display.println("Calibration done");
-              display.print("Cal: "); display.println(calibration_factor, 1);
-              display.display();
-              delay(1500);
-            } else {
-              display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-              display.setCursor(0, 36);
-              display.println("Invalid weight");
-              display.display();
-              delay(1200);
+    unsigned long t0 = millis();
+    while (millis() - t0 < 5000) {
+        if (Serial.available()) {
+            String line = Serial.readStringUntil('\n');
+            line.trim();
+            if (line.startsWith("{")) {
+                Serial.println("[Boot] Credentials via Serial");
+                strncpy(gCredsJson, line.c_str(), sizeof(gCredsJson) - 1);
+                xSemaphoreGive(credsSem);
+                break;
             }
-            buf = "";
-            goto calib_done;
-          } else if (isDigit(ch) || ch == '.') {
-            buf += ch;
-            display.fillRect(0, 52, SCREEN_WIDTH, 12, SSD1306_BLACK);
-            display.setCursor(0, 52);
-            display.print(buf);
-            display.display();
-          }
         }
         delay(50);
-      }
-      display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-      display.setCursor(0, 36);
-      display.println("Calibration timeout");
-      display.display();
-      delay(1000);
-      calib_done: ;
     }
-  }
 
-  delay(300);
+    // ── 6. Pas de Serial → BLE ───────────────────────────────────────────────
+    if (uxSemaphoreGetCount(credsSem) == 0) {
+        Serial.println("[Boot] Démarrage BLE...");
+        startTaskBle("Balance-ESP32");
+    }
+
+    // ── 7. Attendre les credentials (déjà donnés via Serial ou via BLE) ──────
+    xSemaphoreTake(credsSem, portMAX_DELAY);
+    stopTaskBle();
+
+    if (!applyCredentials(gCredsJson)) {
+        Serial.println("[Boot] Credentials invalides → redémarrage");
+        delay(1000);
+        ESP.restart();
+        return;
+    }
+
+    // ── 8. Connexion WiFi avec les nouveaux credentials ───────────────────────
+    const Config& cfg = configMgr.get();
+    gState.update([&cfg](BalanceStatus& s) {
+        s.state = BalanceState::CONNECTING;
+        s.ssid  = cfg.ssid;
+    });
+
+    Serial.printf("[Boot] Connexion à %s...\n", cfg.ssid.c_str());
+    if (!wifi.connect(cfg.ssid, cfg.password)) {
+        configMgr.clear();
+        Serial.println("[Boot] WiFi echec → redémarrage");
+        delay(1000);
+        ESP.restart();
+        return;
+    }
+
+    api = new ApiClient(cfg.apiUrl, cfg.token, cfg.userId);
+    startOperationalTasks();
+}
+
+// ─── Loop : reconnexion WiFi ─────────────────────────────────────────────────
+// Toute la logique métier est dans les tâches.
+// Loop gère uniquement la reconnexion WiFi toutes les 5s.
+void loop() {
+    if (gState.state() != BalanceState::OPERATIONAL) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        return;
+    }
+
+    if (!wifi.isConnected()) {
+        gState.update([](BalanceStatus& s) {
+            s.wifiOk    = false;
+            s.lastEvent = "Reconnexion...";
+        });
+
+        bool ok = wifi.reconnect(5000);
+        gState.update([ok](BalanceStatus& s) { s.wifiOk = ok; });
+
+        Serial.println(ok ? "[WiFi] Reconnecte" : "[WiFi] Reconnexion echouee");
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5000));
 }

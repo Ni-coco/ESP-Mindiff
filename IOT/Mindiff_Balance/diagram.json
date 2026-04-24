@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "author": "Mindiff",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-esp32-devkit-v1",
+      "id": "esp",
+      "top": 80,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "hx711",
+      "top": 0,
+      "left": 400,
+      "attrs": { "units": "kg", "value": "75" }
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled",
+      "top": 300,
+      "left": 400,
+      "attrs": { "i2cAddress": "0x3c" }
+    }
+  ],
+  "connections": [
+    ["esp:TX0", "$serialMonitor:RX", "", []],
+    ["esp:RX0", "$serialMonitor:TX", "", []],
+
+    ["esp:GND.2",  "hx711:GND",  "black",  []],
+    ["esp:3V3",    "hx711:VCC",  "red",    []],
+    ["esp:D13",    "hx711:DT",   "green",  []],
+    ["esp:D14",    "hx711:SCK",  "yellow", []],
+
+    ["esp:GND.1",  "oled:GND",   "black",  []],
+    ["esp:3V3",    "oled:VCC",   "red",    []],
+    ["esp:D21",    "oled:SDA",   "blue",   []],
+    ["esp:D22",    "oled:SCL",   "purple", []]
+  ],
+  "serialMonitor": {
+    "display": "always"
+  }
+}
