@@ -28,7 +28,12 @@ def import_exercices(json_file_path: str):
     with open(json_file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    exercices_data = data.get("Exercises", [])
+    if isinstance(data, dict):
+        exercices_data = data.get("Exercises", [])
+    elif isinstance(data, list):
+        exercices_data = data
+    else:
+        raise ValueError("Format JSON invalide: attendu objet ou liste")
     print(f"Nombre d'exercices à importer: {len(exercices_data)}")
 
     # Create DB session
