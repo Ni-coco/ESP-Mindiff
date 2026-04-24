@@ -212,8 +212,6 @@
   // 7. QR CODES — APK Android
   // =========================================================
   function initQRCodes() {
-    if (typeof QRCode === 'undefined') return;
-
     var apks = [
       {
         id: 'qr-prod',
@@ -225,17 +223,36 @@
       }
     ];
 
+    function renderFallbackImage(el, url) {
+      var img = document.createElement('img');
+      img.width = 140;
+      img.height = 140;
+      img.loading = 'lazy';
+      img.alt = 'QR code de telechargement APK';
+      img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(url);
+      el.innerHTML = '';
+      el.appendChild(img);
+    }
+
     apks.forEach(function (apk) {
       var el = document.getElementById(apk.id);
       if (!el) return;
-      new QRCode(el, {
-        text: apk.url,
-        width: 140,
-        height: 140,
-        colorDark: '#121212',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.M
-      });
+      if (typeof QRCode === 'undefined') {
+        renderFallbackImage(el, apk.url);
+        return;
+      }
+      try {
+        new QRCode(el, {
+          text: apk.url,
+          width: 140,
+          height: 140,
+          colorDark: '#121212',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (e) {
+        renderFallbackImage(el, apk.url);
+      }
     });
   }
 
