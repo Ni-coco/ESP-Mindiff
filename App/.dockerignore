@@ -1,0 +1,15 @@
+.git
+.github
+.dart_tool
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea
+.vscode
+build
+test
+ios
+android
+macos
+linux
+windows
+README.md

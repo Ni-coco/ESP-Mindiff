@@ -14,6 +14,7 @@ from app.api.program import router as program_router
 from app.api.user import router as user_router
 from app.api.weight_log import router as weight_log_router
 from app.api.workout import router as workout_router
+from app.core.config import settings
 
 # Lancer les migrations Alembic au démarrage (crée et met à jour les tables)
 # Sauf en test
@@ -29,10 +30,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+def _parse_cors_origins(raw_origins: str) -> list[str]:
+    if not raw_origins.strip():
+        return []
+    if raw_origins.strip() == "*":
+        return ["*"]
+    return [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
+
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_parse_cors_origins(settings.CORS_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

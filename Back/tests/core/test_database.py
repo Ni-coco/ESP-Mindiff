@@ -26,13 +26,15 @@ class TestDatabaseConfiguration:
         mock_settings.POSTGRES_USER = "testuser"
         mock_settings.POSTGRES_PASSWORD = "testpass"
         mock_settings.POSTGRES_DB = "testdb"
+        mock_settings.POSTGRES_HOST = "db-host"
+        mock_settings.POSTGRES_PORT = 5433
 
-        expected_url = "postgresql+psycopg2://testuser:testpass@localhost:5432/testdb"
+        expected_url = "postgresql+psycopg2://testuser:testpass@db-host:5433/testdb"
 
         # Manually construct URL to verify format
         actual_url = (
             f"postgresql+psycopg2://{mock_settings.POSTGRES_USER}:"
-            f"{mock_settings.POSTGRES_PASSWORD}@localhost:5432/"
+            f"{mock_settings.POSTGRES_PASSWORD}@{mock_settings.POSTGRES_HOST}:{mock_settings.POSTGRES_PORT}/"
             f"{mock_settings.POSTGRES_DB}"
         )
 
@@ -46,14 +48,16 @@ class TestDatabaseConfiguration:
         mock_settings.POSTGRES_USER = "user@domain"
         mock_settings.POSTGRES_PASSWORD = "p@ss%word"
         mock_settings.POSTGRES_DB = "my_db"
+        mock_settings.POSTGRES_HOST = "db.internal"
+        mock_settings.POSTGRES_PORT = 6543
 
         expected_url = (
-            "postgresql+psycopg2://user@domain:p@ss%word@localhost:5432/my_db"
+            "postgresql+psycopg2://user@domain:p@ss%word@db.internal:6543/my_db"
         )
 
         actual_url = (
             f"postgresql+psycopg2://{mock_settings.POSTGRES_USER}:"
-            f"{mock_settings.POSTGRES_PASSWORD}@localhost:5432/"
+            f"{mock_settings.POSTGRES_PASSWORD}@{mock_settings.POSTGRES_HOST}:{mock_settings.POSTGRES_PORT}/"
             f"{mock_settings.POSTGRES_DB}"
         )
 
@@ -480,15 +484,17 @@ class TestDatabaseIntegration:
         mock_settings.POSTGRES_USER = "test_user"
         mock_settings.POSTGRES_PASSWORD = "test_pass"
         mock_settings.POSTGRES_DB = "test_db"
+        mock_settings.POSTGRES_HOST = "db-host"
+        mock_settings.POSTGRES_PORT = 5433
 
         # Verify settings are used to construct URL
         expected_url = (
-            "postgresql+psycopg2://test_user:test_pass@localhost:5432/test_db"
+            "postgresql+psycopg2://test_user:test_pass@db-host:5433/test_db"
         )
 
         actual_url = (
             f"postgresql+psycopg2://{mock_settings.POSTGRES_USER}:"
-            f"{mock_settings.POSTGRES_PASSWORD}@localhost:5432/"
+            f"{mock_settings.POSTGRES_PASSWORD}@{mock_settings.POSTGRES_HOST}:{mock_settings.POSTGRES_PORT}/"
             f"{mock_settings.POSTGRES_DB}"
         )
 

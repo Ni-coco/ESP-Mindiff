@@ -18,10 +18,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.user import MealLog, User
 
-# ── Constantes ────────────────────────────────────────────────────────────────
-
-EDAMAM_RECIPE_URL = "https://api.edamam.com/api/recipes/v2"
-
 # Distribution calorique par slot
 MEAL_DISTRIBUTION: dict[str, float] = {
     "breakfast": 0.25,
@@ -94,7 +90,7 @@ def _fetch_recipe(query: str, user_id: int, target_cal: int) -> dict | None:
 
     try:
         response = httpx.get(
-            EDAMAM_RECIPE_URL,
+            settings.EDAMAM_RECIPE_URL,
             params=[
                 ("type", "public"),
                 ("q", query),

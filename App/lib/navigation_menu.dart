@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mindiff_app/pages/home_page.dart';
@@ -20,6 +21,8 @@ class NavigationMenu extends StatelessWidget {
     final controller = Get.put(NavigationController());
     final darkMode = THelperFunctions.isDarkMode(context);
 
+    final destinations = controller.destinations;
+
     return Scaffold(
       bottomNavigationBar: Obx(() => Container(
         decoration: BoxDecoration(
@@ -40,14 +43,7 @@ class NavigationMenu extends StatelessWidget {
           backgroundColor: darkMode ? Colors.black : Colors.white,
           indicatorColor: darkMode ? TColors.white.withValues(alpha: 0.1) : TColors.black.withValues(alpha: 0.1),
 
-          destinations: const [
-            NavigationDestination(icon: Icon(Iconsax.home), label: 'Home'),
-            NavigationDestination(icon: Icon(Iconsax.activity), label: 'Programme'),
-            NavigationDestination(icon: Icon(Iconsax.camera), label: 'Caméra'),
-            NavigationDestination(icon: Icon(Iconsax.health), label: 'Nutrition'),
-            NavigationDestination(icon: Icon(Iconsax.chart_2), label: 'Métriques'),
-            NavigationDestination(icon: Icon(Iconsax.user), label: 'Profil'),
-          ],
+          destinations: destinations,
         ),
       )),
       body: Obx(() {
@@ -64,15 +60,36 @@ class NavigationMenu extends StatelessWidget {
 
 class NavigationController extends GetxController {
   final Rx<int> selectedIndex = 0.obs;
+  static bool get isPoseDetectionSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
-  final screens = [
-    const HomePage(),
-    const ProgrammePage(),
-    const CameraPage(),
-    const NutritionPage(),
-    const MetricsPage(),
-    const ProfilePage(),
-  ];
+  late final List<Widget> screens;
+  late final List<NavigationDestination> destinations;
+
+  NavigationController() {
+    destinations = [
+      const NavigationDestination(icon: Icon(Iconsax.home), label: 'Home'),
+      const NavigationDestination(
+          icon: Icon(Iconsax.activity), label: 'Programme'),
+      if (isPoseDetectionSupported)
+        const NavigationDestination(icon: Icon(Iconsax.camera), label: 'Caméra'),
+      const NavigationDestination(icon: Icon(Iconsax.health), label: 'Nutrition'),
+      const NavigationDestination(
+          icon: Icon(Iconsax.chart_2), label: 'Métriques'),
+      const NavigationDestination(icon: Icon(Iconsax.user), label: 'Profil'),
+    ];
+
+    screens = [
+      const HomePage(),
+      const ProgrammePage(),
+      if (isPoseDetectionSupported) const CameraPage(),
+      const NutritionPage(),
+      const MetricsPage(),
+      const ProfilePage(),
+    ];
+  }
 
   @override
   void onInit() {

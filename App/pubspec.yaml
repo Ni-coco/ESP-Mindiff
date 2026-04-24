@@ -50,6 +50,9 @@ dependencies:
   flutter_blue_plus: ^2.1.1
   permission_handler: ^12.0.1
   url_launcher: ^6.3.0
+  flutter_dotenv: ^5.2.1
+  camera_avfoundation: ^0.9.23+2
+  camera_macos: ^0.0.9
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +81,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

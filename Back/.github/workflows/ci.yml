@@ -69,7 +69,11 @@ jobs:
 
       - name: Run tests with pytest
         env:
-          DATABASE_URL: postgresql://mindiff:mindiff_test@localhost:5432/mindiff_test
+          POSTGRES_USER: mindiff
+          POSTGRES_PASSWORD: mindiff_test
+          POSTGRES_DB: mindiff_test
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5432"
           SKIP_ALEMBIC: "false"
         run: uv run pytest --cov=app --cov-report=xml --cov-report=term-missing
 
