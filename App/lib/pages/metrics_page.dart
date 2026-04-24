@@ -8,7 +8,8 @@ import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/pages/balance_page.dart';
 import 'package:mindiff_app/services/auth_service.dart';
 import 'package:mindiff_app/utils/theme.dart';
-
+// 🔒 IMPORT RGPD
+import 'package:mindiff_app/services/consent_service.dart';
 
 class MetricsPage extends StatefulWidget {
   const MetricsPage({super.key});
@@ -203,12 +204,54 @@ class _MetricsPageState extends State<MetricsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = THelperFunctions.isDarkMode(context);
+    final consentService = Get.find<ConsentService>();
 
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Obx(() {
+      // 🔒 VÉRIFICATION RGPD : Si l'utilisateur a refusé le traitement santé, on masque l'écran
+      if (!consentService.hasConsentedHealthData.value) {
+        return Scaffold(
+          backgroundColor: isDark ? TColors.darkBackground : Colors.white,
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.privacy_tip_outlined, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Données masquées",
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Vous avez retiré votre consentement au traitement de vos données de santé. Vos métriques ne peuvent donc plus être affichées.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Si tu as des routes nommées, sinon remplace par: Get.to(() => const ConsentPage());
+                      Get.toNamed('/consent'); 
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text("Gérer mes consentements"),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+
       final _ = _ctrl.profile.value;
       _ctrl.targetWeight.value;
 
@@ -476,7 +519,7 @@ class _MetricsPageState extends State<MetricsPage> {
                 ],
               ),
             ),
-            // Disclaimer IMC
+            // 🔒 Disclaimer IMC
             Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 4),
               child: Row(

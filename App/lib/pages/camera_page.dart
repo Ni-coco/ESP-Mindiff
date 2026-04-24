@@ -21,11 +21,6 @@ class CameraPage extends StatefulWidget {
 
 class _CameraPageState extends State<CameraPage>
     with SingleTickerProviderStateMixin {
-  bool get _poseDetectionSupported =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
-
   // Camera & ML
   CameraController? _cameraController;
   PoseDetector? _poseDetector;
@@ -137,26 +132,87 @@ class _CameraPageState extends State<CameraPage>
     }
   }
 
+  // === MODIFICATION RGPD : TRANSPARENCE AVANT DEMANDE ===
   Future<void> _requestPermissionAndInit() async {
-    final status = await Permission.camera.request();
-    if (!mounted) return;
+    // Vérifie si on a déjà la permission
+    var status = await Permission.camera.status;
+
     if (status.isGranted) {
+      if (!mounted) return;
       setState(() => _permissionGranted = true);
       await _initCamera();
-    } else {
-      setState(() => _permissionGranted = false);
+      return;
+    }
+
+    // Si on n'a pas la permission, on affiche un dialogue RGPD
+    if (mounted) {
+      await Get.defaultDialog(
+        title: "Analyse de posture par IA",
+        titlePadding: const EdgeInsets.only(top: 24),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          children: [
+            const Text(
+              "Mindiff a besoin de votre caméra pour analyser vos mouvements en temps réel.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("🔒 Traitement 100% local", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                  SizedBox(height: 4),
+                  Text("❌ Aucune vidéo enregistrée", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                  SizedBox(height: 4),
+                  Text("❌ Aucune image envoyée sur nos serveurs", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+        confirm: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF00E5FF),
+            foregroundColor: Colors.black,
+            minimumSize: const Size(double.infinity, 45),
+          ),
+          onPressed: () async {
+            Get.back(); // Ferme le dialogue explicatif
+
+            // Déclenche la VRAIE demande système
+            status = await Permission.camera.request();
+            if (!mounted) return;
+
+            if (status.isGranted) {
+              setState(() => _permissionGranted = true);
+              await _initCamera();
+            } else {
+              setState(() => _permissionGranted = false);
+            }
+          },
+          child: const Text("J'ai compris, autoriser"),
+        ),
+      );
     }
   }
+  // ========================================================
 
   Future<void> _initCamera() async {
     _cameras = await availableCameras();
     if (_cameras.isEmpty) return;
 
-    if (_poseDetectionSupported) {
-      _poseDetector ??= PoseDetector(
-        options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
-      );
-    }
+    _poseDetector ??= PoseDetector(
+      options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
+    );
 
     await _startCamera();
   }
@@ -182,15 +238,13 @@ class _CameraPageState extends State<CameraPage>
 
     setState(() => _initialized = true);
 
-    if (_poseDetectionSupported) {
-      _cameraController!.startImageStream((CameraImage image) {
-        if (!_isAnalyzing || _isDetecting) return;
-        _isDetecting = true;
-        _detectPose(image, camera.sensorOrientation).then((_) {
-          _isDetecting = false;
-        });
+    _cameraController!.startImageStream((CameraImage image) {
+      if (!_isAnalyzing || _isDetecting) return;
+      _isDetecting = true;
+      _detectPose(image, camera.sensorOrientation).then((_) {
+        _isDetecting = false;
       });
-    }
+    });
   }
 
   Future<void> _switchCamera() async {
@@ -619,7 +673,7 @@ class _CameraPageState extends State<CameraPage>
                       ),
                     ),
                     const Spacer(),
-                    if (_isAnalyzing && _poseDetectionSupported) ...[
+                    if (_isAnalyzing) ...[
                       // TTS toggle button
                       GestureDetector(
                         onTap: () {
@@ -684,9 +738,7 @@ class _CameraPageState extends State<CameraPage>
                     const SizedBox(width: 8),
                     // Play / Stop analysis button
                     GestureDetector(
-                      onTap: (_isResting || !_poseDetectionSupported)
-                          ? null
-                          : _toggleAnalyzing,
+                      onTap: _isResting ? null : _toggleAnalyzing,
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
@@ -718,7 +770,7 @@ class _CameraPageState extends State<CameraPage>
           ),
 
           // ── Programme objective badge ────────────────────────────────────
-          if (_isAnalyzing && _poseDetectionSupported) Builder(builder: (_) {
+          if (_isAnalyzing) Builder(builder: (_) {
             final key = _analyzerKeyForIndex(_selectedIndex);
             final info = _getProgrammeInfo(key);
             if (info == null) return const SizedBox.shrink();
@@ -745,7 +797,7 @@ class _CameraPageState extends State<CameraPage>
           }),
 
           // ── Analyzing UI (rep counter, angles, advice) ────────────────────
-          if (_isAnalyzing && _poseDetectionSupported) ...[
+          if (_isAnalyzing) ...[
             Positioned(
               top: 100,
               left: 16,

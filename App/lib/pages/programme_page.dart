@@ -218,6 +218,30 @@ class _ProgrammePageState extends State<ProgrammePage> {
                   sessions != null ? '$sessions séance${sessions > 1 ? 's' : ''}/semaine' : '',
                   style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                 ),
+
+                // 🔒 DISCLAIMER LÉGAL SPORT (Avertissement IA)
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Ces programmes sont générés par IA. Pratiquez à vos propres risques. En cas de douleur, arrêtez immédiatement et consultez un médecin.",
+                          style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: isDark ? Colors.grey[300] : Colors.grey[700]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 24),
 
                 // ── Programme de la semaine ──────────────────────────────────
