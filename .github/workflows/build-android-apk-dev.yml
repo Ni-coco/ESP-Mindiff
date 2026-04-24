@@ -1,8 +1,8 @@
-name: Build Android APK
+name: Build Android APK (dev)
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
 
 permissions:
   contents: write
@@ -42,26 +42,26 @@ jobs:
 
       - name: Build release APK
         working-directory: App
-        run: flutter build apk --release --dart-define=API_BASE_URL=https://api.nini.network/api
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://apidev.nini.network/api
 
       - name: Upload APK workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mindiff-prod-apk
+          name: mindiff-dev-apk
           path: App/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
       - name: Publish rolling GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: main-latest
-          name: main-latest
+          tag: dev-latest
+          name: Mindiff Android APK (dev-latest)
           allowUpdates: true
           replacesArtifacts: true
           removeArtifacts: true
           makeLatest: true
           body: |
-            APK build generated automatically from `main`.
+            APK build generated automatically from `dev`.
 
             - Commit: `${{ github.sha }}`
             - Workflow: `${{ github.workflow }}`
