@@ -204,6 +204,10 @@ class _CameraPageState extends State<CameraPage>
   }
 
   Uint8List _yuv420ToNv21(CameraImage image) {
+    // Sur certains devices (ex: Samsung), la caméra retourne déjà du NV21 sur un seul plan.
+    if (image.planes.length == 1) {
+      return image.planes[0].bytes;
+    }
     final width = image.width;
     final height = image.height;
     final yPlane = image.planes[0];
@@ -260,7 +264,7 @@ class _CameraPageState extends State<CameraPage>
         rotation: InputImageRotationValue.fromRawValue(sensorOrientation) ??
             InputImageRotation.rotation0deg,
         format: InputImageFormat.nv21,
-        bytesPerRow: image.width,
+        bytesPerRow: image.planes[0].bytesPerRow,
       ),
     );
 
