@@ -5,6 +5,7 @@ import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/pages/login_page.dart';
 import 'package:mindiff_app/services/auth_service.dart';
 import 'package:mindiff_app/utils/theme.dart';
+import 'package:mindiff_app/pages/consent_page.dart'; // Assure-toi que le nom du fichier est correct
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -120,8 +121,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
             const SizedBox(height: 16),
 
-            // --- Paramètres ---
-            _SectionTitle(title: 'Paramètres'),
+            // --- Paramètres & RGPD ---
+            _SectionTitle(title: 'Paramètres & Confidentialité'),
             Card(
               child: Obx(() {
                 final isDark = themeController.themeMode.value == ThemeMode.dark;
@@ -135,14 +136,27 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               }),
             ),
+            
+            // ACCÈS GESTION RGPD
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined, color: Colors.blue),
+                title: const Text('Gérer mes données (RGPD)'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // Utilisation de Get.to au lieu de toNamed pour éviter l'erreur de route non définie
+                  Get.to(() => const ConsentPage());
+                },
+              ),
+            ),
 
             const SizedBox(height: 24),
 
             // --- Logout ---
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade50,
-                foregroundColor: Colors.red,
+                backgroundColor: Colors.grey.shade200,
+                foregroundColor: Colors.black87,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               onPressed: () async {
@@ -152,6 +166,57 @@ class _ProfilePageState extends State<ProfilePage> {
               },
               icon: const Icon(Icons.logout),
               label: const Text('Déconnexion'),
+            ),
+
+            const SizedBox(height: 12),
+
+            // --- Droit à l'oubli : Supprimer le compte ---
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () {
+                Get.defaultDialog(
+                  title: "Supprimer le compte",
+                  middleText: "Cette action est irréversible. Toutes vos données de santé, historiques et programmes seront définitivement effacés.",
+                  textConfirm: "Supprimer",
+                  textCancel: "Annuler",
+                  confirmTextColor: Colors.white,
+                  buttonColor: Colors.red,
+                  onConfirm: () async {
+                    try {
+                      final userId = controller.profile.value?.id;
+                      if (userId != null) {
+                        // 1. Appel API pour supprimer en BDD
+                        await Get.find<AuthService>().deleteAccount(userId);
+                        
+                        // 2. Nettoyage local
+                        await Get.find<UserProfileController>().clear();
+                        
+                        // 3. Retour au login
+                        Get.offAll(() => const LoginPage());
+                        
+                        Get.snackbar(
+                          "Compte supprimé", 
+                          "Vos données ont été effacées conformément au RGPD.",
+                          snackPosition: SnackPosition.BOTTOM,
+                          backgroundColor: Colors.green,
+                          colorText: Colors.white,
+                        );
+                      }
+                    } catch (e) {
+                      Get.back(); // Fermer la popup
+                      Get.snackbar(
+                        "Erreur", 
+                        "Impossible de supprimer le compte : $e",
+                        snackPosition: SnackPosition.BOTTOM,
+                        backgroundColor: Colors.red,
+                        colorText: Colors.white,
+                      );
+                    }
+                  }
+                );
+              },
+              icon: const Icon(Icons.delete_forever),
+              label: const Text("Supprimer définitivement mon compte"),
             ),
 
             const SizedBox(height: 16),

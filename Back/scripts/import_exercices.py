@@ -3,12 +3,25 @@ Script pour importer les exercices depuis le fichier JSON Firebase
 """
 
 import json
+import os
 import sys
 
 from sqlalchemy.orm import Session
 
 from app.db.database import Base, SessionLocal, engine
 from app.models.exercise import Exercise, Instruction, SecondaryMuscle
+
+
+def _resolve_gif_url(raw_url: str | None) -> str | None:
+    """
+    Remplace le placeholder {API_BASE_URL} par la base API.
+    Si le JSON pointe vers .../api/static/gifs/..., on corrige vers .../static/gifs/...
+    """
+    if not raw_url:
+        return raw_url
+    api_base = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
+    resolved = raw_url.replace("{API_BASE_URL}", api_base)
+    return resolved.replace("/api/static/gifs/", "/static/gifs/")
 
 
 def create_tables():
@@ -59,7 +72,7 @@ def import_exercices(json_file_path: str):
                     id=exercice_data.get("id"),
                     name=exercice_data.get("name"),
                     equipment=exercice_data.get("equipment"),
-                    gif_url=exercice_data.get("gifUrl"),
+                    gif_url=_resolve_gif_url(exercice_data.get("gifUrl")),
                     body_part=exercice_data.get("bodyPart"),
                     target=exercice_data.get("target"),
                 )

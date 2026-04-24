@@ -24,6 +24,7 @@ class ExerciseOut(BaseModel):
     equipment: Optional[str] = None
     gif_url: Optional[str] = None
     target: Optional[str] = None
+    analyzer_key: Optional[str] = None
     instructions: List[InstructionOut] = []
     secondary_muscles: List[SecondaryMuscleOut] = []
 
@@ -38,6 +39,7 @@ class ExerciseShort(BaseModel):
     equipment: Optional[str] = None
     gif_url: Optional[str] = None
     target: Optional[str] = None
+    analyzer_key: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
