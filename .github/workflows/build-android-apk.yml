@@ -1,0 +1,63 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare env file
+        working-directory: App
+        run: echo "API_BASE_URL=${{ vars.APP_API_BASE_URL_PROD }}" > .env
+
+      - name: Install dependencies
+        working-directory: App
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: App
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://api.nini.network/api
+
+      - name: Upload APK workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindiff-prod-apk
+          path: App/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Publish rolling GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: main-latest
+          name: main-latest
+          allowUpdates: true
+          replacesArtifacts: true
+          removeArtifacts: true
+          makeLatest: true
+          body: |
+            APK build generated automatically from `main`.
+
+            - Commit: `${{ github.sha }}`
+            - Workflow: `${{ github.workflow }}`
+          artifacts: App/build/app/outputs/flutter-apk/app-release.apk

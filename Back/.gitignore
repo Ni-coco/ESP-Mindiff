@@ -1,0 +1,11 @@
+# Python + ENV
+**/__pycache__
+__pycache__/
+.ruff_cache/
+.idea/
+.env
+.venv/
+.pytest_cache/
+
+# Workflows
+htmlcov/
