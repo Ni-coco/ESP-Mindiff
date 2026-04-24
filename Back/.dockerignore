@@ -11,6 +11,5 @@ __pycache__
 .coverage
 htmlcov
 tests
-scripts
 docker
 README.md
