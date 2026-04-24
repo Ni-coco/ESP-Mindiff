@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:async';
-import 'dart:io';
 import 'package:mindiff_app/utils/theme.dart';
 import 'package:mindiff_app/pages/register_onboarding_page.dart';
 import 'package:mindiff_app/navigation_menu.dart';
@@ -72,12 +71,15 @@ class _LoginPageState extends State<LoginPage> {
       debugPrint('Login stacktrace: $st');
 
       String message = 'Impossible de se connecter au serveur';
-      if (e is SocketException) {
-        message = 'Serveur inaccessible. Vérifiez que le backend est démarré.';
-      } else if (e is HandshakeException) {
-        message = 'Erreur SSL/TLS lors de la connexion au serveur.';
-      } else if (e is TimeoutException) {
+      if (e is TimeoutException) {
         message = 'Le serveur met trop de temps à répondre.';
+      } else {
+        final s = e.toString();
+        if (s.contains('SocketException') || s.contains('Connection refused')) {
+          message = 'Serveur inaccessible. Vérifiez que le backend est démarré.';
+        } else if (s.contains('HandshakeException') || s.contains('TLS') || s.contains('SSL')) {
+          message = 'Erreur SSL/TLS lors de la connexion au serveur.';
+        }
       }
 
       Get.snackbar('Erreur', message, snackPosition: SnackPosition.BOTTOM);
