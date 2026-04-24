@@ -19,6 +19,8 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 COPY scripts ./scripts
+COPY static/ ./static/
+COPY static/gifs ./static/gifs
 
 EXPOSE 8000
 
