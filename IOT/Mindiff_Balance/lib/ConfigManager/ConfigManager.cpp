@@ -9,6 +9,10 @@ static const char* KEY_API_URL = "api_url";
 static const char* KEY_USER_ID = "user_id";
 static const char* KEY_CALIB   = "calib";
 
+#ifndef DEFAULT_CALIB_FACTOR
+#define DEFAULT_CALIB_FACTOR 1000.0f
+#endif
+
 bool ConfigManager::load() {
     Preferences prefs;
     prefs.begin(NVS_NS, true); // lecture seule
@@ -17,7 +21,7 @@ bool ConfigManager::load() {
     _config.token       = prefs.getString(KEY_TOKEN,   "");
     _config.apiUrl      = prefs.getString(KEY_API_URL, "");
     _config.userId      = prefs.getInt   (KEY_USER_ID, -1);
-    _config.calibFactor = prefs.getFloat (KEY_CALIB,   1000.0f);
+    _config.calibFactor = prefs.getFloat (KEY_CALIB,   DEFAULT_CALIB_FACTOR);
     prefs.end();
     return isProvisioned();
 }

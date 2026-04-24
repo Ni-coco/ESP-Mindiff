@@ -120,8 +120,8 @@ void Display::showCalibrationPrompt() {
     _oled.setTextSize(1);
     _oled.setCursor(0, 36);
     _oled.println("Calibrate:");
-    _oled.println("Pose le poids connu");
-    _oled.println("Entre kg < 15s");
+    _oled.println("Tare OK, pose poids");
+    _oled.println("Entrez kg < 15s");
     _oled.display();
 }
 

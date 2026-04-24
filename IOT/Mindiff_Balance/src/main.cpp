@@ -16,6 +16,10 @@
 #include "tasks/TaskBle.h"
 #include "tasks/TaskCalibration.h"
 
+#ifndef DEFAULT_CALIB_FACTOR
+#define DEFAULT_CALIB_FACTOR 1000.0f
+#endif
+
 // ─── Config hardware ──────────────────────────────────────────────────────────
 static const int PIN_DOUT = 13;
 static const int PIN_SCK  = 14;
@@ -80,7 +84,16 @@ void setup() {
     initAppState();
 
     // 2. Init hardware avec le facteur de calibration sauvegardé si dispo
-    const float calibFactor = configMgr.load() ? configMgr.get().calibFactor : 1000.0f;
+    const bool  hasConfig    = configMgr.load();
+    float       calibFactor  = hasConfig ? configMgr.get().calibFactor : DEFAULT_CALIB_FACTOR;
+    if (calibFactor <= 0.0f || calibFactor > 100.0f) {
+        calibFactor = DEFAULT_CALIB_FACTOR;
+        if (hasConfig) {
+            Config cfg = configMgr.get();
+            cfg.calibFactor = calibFactor;
+            configMgr.save(cfg);
+        }
+    }
     scale.begin(calibFactor);
     Serial.printf("[Boot] Scale OK (calib: %.1f)\n", calibFactor);
 

@@ -1,6 +1,10 @@
 #include "Scale.h"
 #include "WeightUtils.h"
 
+#ifndef SIM_WEIGHT_MULTIPLIER
+#define SIM_WEIGHT_MULTIPLIER 1.0f
+#endif
+
 Scale::Scale(int dout, int sck) : _dout(dout), _sck(sck), _calibrationFactor(1000.0f) {}
 
 void Scale::begin(float calibrationFactor) {
@@ -20,11 +24,14 @@ void Scale::tare() {
 
 float Scale::getWeightKg() {
     float grams = _hx711.get_units(10);
-    return WeightUtils::gramsToKg(grams);
+    float kg = WeightUtils::gramsToKg(grams);
+    return kg * SIM_WEIGHT_MULTIPLIER;
 }
 
 float Scale::computeCalibration(float knownGrams) {
-    long raw = _hx711.read_average(20);
+    // Calibre sur la valeur nette (raw - tare), plus fiable qu'une moyenne brute.
+    long raw = _hx711.get_value(20);
+    if (raw < 0) raw = -raw;
     _calibrationFactor = WeightUtils::computeCalibrationFactor(raw, knownGrams);
     _hx711.set_scale(_calibrationFactor);
     return _calibrationFactor;

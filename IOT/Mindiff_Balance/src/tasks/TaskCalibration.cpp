@@ -3,6 +3,10 @@
 #include "../AppState.h"
 #include "../GlobalState.h"
 
+#ifndef SIM_WEIGHT_MULTIPLIER
+#define SIM_WEIGHT_MULTIPLIER 1.0f
+#endif
+
 static Scale*         _scale   = nullptr;
 static Display*       _display = nullptr;
 static ConfigManager* _config  = nullptr;
@@ -21,6 +25,11 @@ static void handleCalibrationInput() {
     vTaskDelay(pdMS_TO_TICKS(50));
     while (Serial.available()) Serial.read();
 
+    // Etape 1: tare automatique pour partir d'un zero propre.
+    xSemaphoreTake(scaleMutex, portMAX_DELAY);
+    _scale->tare();
+    xSemaphoreGive(scaleMutex);
+
     xSemaphoreTake(displayMutex, portMAX_DELAY);
     _display->showCalibrationPrompt();
     xSemaphoreGive(displayMutex);
@@ -34,7 +43,7 @@ static void handleCalibrationInput() {
             if (ch == '\r') continue;
             if (ch == '\n') {
                 float knownKg = buf.toFloat();
-                float known   = knownKg * 1000.0f; // convertit kg → grammes pour computeCalibration
+                float known   = (knownKg * 1000.0f) / SIM_WEIGHT_MULTIPLIER;
                 if (known > 0.0f) {
                     xSemaphoreTake(scaleMutex, portMAX_DELAY);
                     float newFactor = _scale->computeCalibration(known);
