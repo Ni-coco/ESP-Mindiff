@@ -36,14 +36,14 @@ dependencies:
   cupertino_icons: ^1.0.8
   get: ^4.6.6
   iconsax: ^0.0.8
-  camera: ^0.12.0+1
-  google_mlkit_pose_detection: ^0.14.1
-  smooth_page_indicator: ^2.0.1
-  dropdown_button2: ^3.0.0
-  fl_chart: ^1.2.0
+  camera: ^0.11.0
+  google_mlkit_pose_detection: ^0.12.0
+  smooth_page_indicator: ^1.1.0
+  dropdown_button2: ^2.3.8
+  fl_chart: ^0.68.0
   health: ^13.3.0
   http: ^1.2.0
-  flutter_bloc: ^9.1.1
+  flutter_bloc: ^8.1.6
   postgres: ^3.0.0
   shared_preferences: ^2.3.2
   flutter_tts: ^4.2.0
@@ -51,7 +51,6 @@ dependencies:
   permission_handler: ^12.0.1
   url_launcher: ^6.3.0
   flutter_dotenv: ^5.2.1
-  camera_avfoundation: ^0.9.23+2
   camera_macos: ^0.0.9
 
 dev_dependencies:
@@ -63,8 +62,8 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^6.0.0
-  bloc_test: ^10.0.0
+  flutter_lints: ^5.0.0
+  bloc_test: ^9.1.7
   mocktail: ^1.0.4
 
 # For information on the generic Dart part of this file, see the
