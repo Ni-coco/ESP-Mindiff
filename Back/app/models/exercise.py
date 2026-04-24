@@ -36,6 +36,7 @@ class Exercise(Base):
     equipment: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
     gif_url: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True)
     target: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=True, index=True)
+    analyzer_key: sqlo.Mapped[str | None] = sqlo.mapped_column(String(32), nullable=True)
 
     instructions: sqlo.Mapped[list[Instruction]] = sqlo.relationship(
         back_populates="exercise", cascade="all, delete-orphan", order_by="Instruction.step_order"
