@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:mindiff_app/controllers/active_programme_controller.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
+import 'package:mindiff_app/navigation_menu.dart';
 import 'package:mindiff_app/services/auth_service.dart';
 import 'package:mindiff_app/utils/theme.dart';
 
@@ -11,18 +13,21 @@ import 'package:mindiff_app/utils/theme.dart';
 
 class _Exercise {
   final String id, name, target, gifUrl, equipment;
-  _Exercise({required this.id, required this.name, required this.target, required this.gifUrl, required this.equipment});
+  final String? analyzerKey;
+  _Exercise({required this.id, required this.name, required this.target, required this.gifUrl, required this.equipment, this.analyzerKey});
   factory _Exercise.fromJson(Map<String, dynamic> j) => _Exercise(
         id: j['id'] as String,
         name: j['name'] as String,
         target: j['target'] as String? ?? '',
         gifUrl: j['gif_url'] as String? ?? '',
         equipment: j['equipment'] as String? ?? '',
+        analyzerKey: j['analyzer_key'] as String?,
       );
 }
 
 class _WorkoutExercise {
   final String exerciseId, exerciseName, target, gifUrl, equipment;
+  final String? analyzerKey;
   final int sets, repsMin, repsMax;
   final bool isCardio;
   _WorkoutExercise.fromJson(Map<String, dynamic> j)
@@ -31,10 +36,13 @@ class _WorkoutExercise {
         target = (j['exercise'] as Map)['target'] as String? ?? '',
         gifUrl = (j['exercise'] as Map)['gif_url'] as String? ?? '',
         equipment = (j['exercise'] as Map)['equipment'] as String? ?? '',
+        analyzerKey = (j['exercise'] as Map)['analyzer_key'] as String?,
         sets = j['sets'] as int,
         repsMin = j['reps_min'] as int,
         repsMax = j['reps_max'] as int,
-        isCardio = j['is_cardio'] as bool;
+        isCardio = (j['is_cardio'] as bool?) ?? false;
+
+  bool get isTrackable => analyzerKey != null;
 }
 
 class _Session {
@@ -71,6 +79,26 @@ class _CustomWorkout {
       : id = j['id'] as int,
         name = j['name'] as String,
         exercises = (j['exercises'] as List).map((e) => _WorkoutExercise.fromJson(e as Map<String, dynamic>)).toList();
+
+  List<_WorkoutExercise> get trackableExercises =>
+      exercises.where((e) => e.isTrackable).toList();
+}
+
+ProgrammeExercice _toProgrammeExercice(_WorkoutExercise e) => ProgrammeExercice(
+      nom: e.exerciseName,
+      emoji: _emojiForAnalyzer(e.analyzerKey!),
+      analyzerKey: e.analyzerKey!,
+      series: e.sets,
+      repsCible: e.repsMax,
+      isSeconds: e.analyzerKey == 'plank',
+    );
+
+String _emojiForAnalyzer(String key) {
+  const m = {
+    'squat': '🏋️', 'bench': '💪', 'pullup': '🤸', 'pushup': '🔥',
+    'curl': '💪', 'row': '🚣', 'dips': '🏋️', 'ohp': '🏋️', 'plank': '🧘',
+  };
+  return m[key] ?? '💪';
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -103,6 +131,7 @@ class ProgrammePage extends StatefulWidget {
 class _ProgrammePageState extends State<ProgrammePage> {
   final _ctrl = Get.find<UserProfileController>();
   final _auth = Get.find<AuthService>();
+  final _active = Get.find<ActiveProgrammeController>();
 
   _WorkoutWeek? _week;
   List<_CustomWorkout> _customs = [];
@@ -206,6 +235,19 @@ class _ProgrammePageState extends State<ProgrammePage> {
                           )),
                 ]),
                 const SizedBox(height: 8),
+
+                // ── Séance en cours (actif uniquement) ───────────────────────
+                Obx(() {
+                  if (!_active.hasActive) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _ActiveSessionCard(
+                      data: _active.activeProgramme.value!,
+                      isDark: isDark,
+                      onStop: _active.arreter,
+                    ),
+                  );
+                }),
 
                 // ── Bannière profil ──────────────────────────────────────────
                 if (goal != null || sessions != null)
@@ -370,8 +412,13 @@ class _ProgrammePageState extends State<ProgrammePage> {
           try {
             final data = await _auth.createCustomWorkout(userId, name: name, exercises: exercises);
             setState(() => _customs.add(_CustomWorkout.fromJson(data)));
-          } catch (e) {
-            debugPrint('CREATE CUSTOM ERROR: $e');
+          } catch (e, stack) {
+            debugPrint('CREATE CUSTOM ERROR: $e\n$stack');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erreur creation seance: $e')),
+              );
+            }
           }
         },
       ),
@@ -753,8 +800,28 @@ class _CustomDetailSheet extends StatelessWidget {
   final AuthService auth;
   const _CustomDetailSheet({required this.workout, required this.isDark, required this.auth});
 
+  void _demarrer(BuildContext context) {
+    final trackable = workout.trackableExercises;
+    if (trackable.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun exercice trackable dans cette séance (ex : pull up).')),
+      );
+      return;
+    }
+    final ctrl = Get.find<ActiveProgrammeController>();
+    ctrl.demarrer(
+      programmeId: workout.id,
+      nom: workout.name,
+      couleurValue: const Color(0xFF00E5FF).value,
+      exercices: trackable.map(_toProgrammeExercice).toList(),
+    );
+    Navigator.pop(context);
+    Get.find<NavigationController>().selectedIndex.value = 2;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final trackableCount = workout.trackableExercises.length;
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
       child: Container(
@@ -772,6 +839,23 @@ class _CustomDetailSheet extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: THelperFunctions.textColor(context))),
             ),
           ),
+          if (trackableCount > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _demarrer(context),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text('Démarrer ($trackableCount trackable${trackableCount > 1 ? 's' : ''})'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00E5FF),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           Divider(height: 1, color: Colors.grey.withOpacity(0.15)),
           Expanded(
@@ -1289,6 +1373,130 @@ class _RecommendationBanner extends StatelessWidget {
                   )),
         ),
       ]),
+    );
+  }
+}
+
+// ─── Carte "séance en cours" ─────────────────────────────────────────────────
+
+class _ActiveSessionCard extends StatelessWidget {
+  final ActiveProgrammeData data;
+  final bool isDark;
+  final VoidCallback onStop;
+  const _ActiveSessionCard({required this.data, required this.isDark, required this.onStop});
+
+  @override
+  Widget build(BuildContext context) {
+    final seance = data.seanceEnCours;
+    final cyan = const Color(0xFF00E5FF);
+    final textColor = THelperFunctions.textColor(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cyan.withOpacity(0.18), cyan.withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cyan.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: cyan,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text('EN COURS',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(data.nom,
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                  overflow: TextOverflow.ellipsis),
+            ),
+            IconButton(
+              onPressed: onStop,
+              icon: const Icon(Icons.close, size: 20),
+              color: Colors.red.withOpacity(0.8),
+              tooltip: 'Arrêter',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          if (seance == null)
+            Text('Programme terminé 🎉',
+                style: TextStyle(color: textColor, fontStyle: FontStyle.italic))
+          else
+            ...data.exercices.map((ex) {
+              final prog = seance.progressions[ex.analyzerKey];
+              final done = prog?.seriesCompletes ?? 0;
+              final total = ex.series;
+              final isDone = done >= total;
+              final totalReps = prog?.repsParSerie.fold<int>(0, (a, b) => a + b) ?? 0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  Text(ex.emoji, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(ex.nom,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: textColor,
+                              decoration: isDone ? TextDecoration.lineThrough : null,
+                            )),
+                        const SizedBox(height: 2),
+                        Text(
+                          ex.isSeconds
+                              ? 'Objectif : ${ex.repsCible}s / série'
+                              : 'Objectif : ${ex.repsCible} reps / série',
+                          style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('$done/$total',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: isDone ? Colors.green : cyan, fontSize: 16)),
+                      Text('séries',
+                          style: TextStyle(fontSize: 10, color: isDark ? Colors.grey[500] : Colors.grey[600])),
+                      if (totalReps > 0)
+                        Text('$totalReps reps',
+                            style: TextStyle(fontSize: 10, color: isDark ? Colors.grey[400] : Colors.grey[700])),
+                    ],
+                  ),
+                ]),
+              );
+            }),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => Get.find<NavigationController>().selectedIndex.value = 2,
+              icon: const Icon(Icons.videocam_rounded),
+              label: const Text('Aller à la caméra'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: cyan,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

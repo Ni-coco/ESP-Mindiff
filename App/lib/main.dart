@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:mindiff_app/app.dart';
 import 'package:mindiff_app/config/app_config.dart';
+import 'package:mindiff_app/controllers/active_programme_controller.dart';
 import 'package:mindiff_app/services/api_client.dart';
 import 'package:mindiff_app/services/auth_service.dart';
 // 👉 AJOUT DE L'IMPORT DU CONSENT SERVICE
@@ -25,5 +26,9 @@ void main() async {
   await Get.putAsync(() => ConsentService().init());
   
   Get.put(AuthService(), permanent: true);
+  Get.lazyPut<ActiveProgrammeController>(
+    () => ActiveProgrammeController(),
+    fenix: true,
+  );
   runApp(const App());
 }

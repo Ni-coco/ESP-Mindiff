@@ -3,12 +3,21 @@ Script pour importer les exercices depuis le fichier JSON Firebase
 """
 
 import json
+import os
 import sys
 
 from sqlalchemy.orm import Session
 
 from app.db.database import Base, SessionLocal, engine
 from app.models.exercise import Exercise, Instruction, SecondaryMuscle
+
+
+def _resolve_gif_url(raw_url: str | None) -> str | None:
+    """Remplace le placeholder {API_BASE_URL} par la variable d'environnement."""
+    if not raw_url:
+        return raw_url
+    api_base = os.getenv("API_BASE_URL", "http://localhost:8000/api").rstrip("/")
+    return raw_url.replace("{API_BASE_URL}", api_base)
 
 
 def create_tables():
@@ -28,7 +37,12 @@ def import_exercices(json_file_path: str):
     with open(json_file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    exercices_data = data.get("Exercises", [])
+    if isinstance(data, dict):
+        exercices_data = data.get("Exercises", [])
+    elif isinstance(data, list):
+        exercices_data = data
+    else:
+        raise ValueError("Format JSON invalide: attendu objet ou liste")
     print(f"Nombre d'exercices à importer: {len(exercices_data)}")
 
     # Create DB session
@@ -52,19 +66,18 @@ def import_exercices(json_file_path: str):
                 # Create exercise object
                 exercice = Exercise(
                     id=exercice_data.get("id"),
-                    title=exercice_data.get("name"),
-                    description=None,  # Pas de description dans le JSON
+                    name=exercice_data.get("name"),
                     equipment=exercice_data.get("equipment"),
-                    gif=exercice_data.get("gifUrl"),
+                    gif_url=_resolve_gif_url(exercice_data.get("gifUrl")),
                     body_part=exercice_data.get("bodyPart"),
                     target=exercice_data.get("target"),
                 )
 
                 # Ajouter les instructions
                 instructions = exercice_data.get("instructions", [])
-                for instruction_text in instructions:
+                for order, instruction_text in enumerate(instructions, start=1):
                     instruction = Instruction(
-                        description=instruction_text, exercise_id=exercice.id
+                        step_order=order, text=instruction_text, exercise_id=exercice.id
                     )
                     exercice.instructions.append(instruction)
 

@@ -42,10 +42,7 @@ class _CameraPageState extends State<CameraPage>
   int _selectedIndex = 0;
   late List<ExerciseAnalyzer> _analyzers;
   ExerciseFeedback? _feedback;
-  final PageController _pageController = PageController(
-    viewportFraction: 0.38,
-    initialPage: 0,
-  );
+  late PageController _pageController;
 
   // Animation
   late AnimationController _switchAnim;
@@ -67,6 +64,11 @@ class _CameraPageState extends State<CameraPage>
   void initState() {
     super.initState();
     _analyzers = kExercises;
+    _selectedIndex = _initialIndexFromActiveProgramme();
+    _pageController = PageController(
+      viewportFraction: 0.38,
+      initialPage: _selectedIndex,
+    );
     _switchAnim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -75,6 +77,17 @@ class _CameraPageState extends State<CameraPage>
     _switchAnim.forward();
     _initTts();
     _requestPermissionAndInit();
+  }
+
+  int _initialIndexFromActiveProgramme() {
+    final data = Get.find<ActiveProgrammeController>().activeProgramme.value;
+    final seance = data?.seanceEnCours;
+    if (data == null || seance == null) return 0;
+    final pending = data.exercices.firstWhere(
+      (e) => !(seance.progressions[e.analyzerKey]?.estTermine(e) ?? false),
+      orElse: () => data.exercices.first,
+    );
+    return kAnalyzerKeyToIndex[pending.analyzerKey] ?? 0;
   }
 
   Future<void> _initTts() async {
@@ -258,6 +271,10 @@ class _CameraPageState extends State<CameraPage>
   }
 
   Uint8List _yuv420ToNv21(CameraImage image) {
+    // Sur certains devices (ex: Samsung), la caméra retourne déjà du NV21 sur un seul plan.
+    if (image.planes.length == 1) {
+      return image.planes[0].bytes;
+    }
     final width = image.width;
     final height = image.height;
     final yPlane = image.planes[0];
@@ -314,7 +331,7 @@ class _CameraPageState extends State<CameraPage>
         rotation: InputImageRotationValue.fromRawValue(sensorOrientation) ??
             InputImageRotation.rotation0deg,
         format: InputImageFormat.nv21,
-        bytesPerRow: image.width,
+        bytesPerRow: image.planes[0].bytesPerRow,
       ),
     );
 
@@ -329,7 +346,7 @@ class _CameraPageState extends State<CameraPage>
       setState(() {
         _poses = poses;
         _imageSize = imageSize;
-        _feedback = feedback;
+        if (feedback != null) _feedback = feedback;
       });
       if (feedback != null) {
         _processTts(feedback);
