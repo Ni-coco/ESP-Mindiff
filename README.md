@@ -1,5 +1,9 @@
 # ESP-Mindiff
 
+## Infrastructure documentation
+
+- Complete architecture and environment credentials are documented in `docs/architecture-credentials.md`.
+
 ## Deployment (Dokploy + Flutter Web/APK)
 
 This repository is prepared to:
