@@ -27,4 +27,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
   CMD curl -fsS http://127.0.0.1:8000/health || exit 1
 
-CMD ["sh", "-c", "export PYTHONPATH=/app && alembic upgrade head && if [ -n \"$EXERCISES_JSON_PATH\" ] && [ -f \"$EXERCISES_JSON_PATH\" ]; then python -m scripts.import_exercices \"$EXERCISES_JSON_PATH\"; else echo \"EXERCISES_JSON_PATH absent ou fichier introuvable, import_exercices skip\"; fi && python -m scripts.migrate_gif_urls && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "export PYTHONPATH=/app && alembic upgrade head && if [ -n \"$EXERCISES_JSON_PATH\" ] && [ -f \"$EXERCISES_JSON_PATH\" ]; then python -m scripts.import_exercices \"$EXERCISES_JSON_PATH\"; else echo \"EXERCISES_JSON_PATH absent ou fichier introuvable, import_exercices skip\"; fi && echo '=== MIGRATION GIF URLS ===' && python -m scripts.migrate_gif_urls || echo 'WARN: migrate_gif_urls a echoue, on continue quand meme' && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
