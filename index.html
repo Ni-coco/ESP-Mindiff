@@ -316,6 +316,39 @@
             </div>
           </a>
         </div>
+
+        <!-- APK Android direct -->
+        <div class="apk-wrapper animate-on-scroll" style="--delay: 0.2s" aria-label="Téléchargement APK Android">
+          <div class="apk-divider" aria-hidden="true">
+            <span>ou téléchargez l'APK Android directement</span>
+          </div>
+          <div class="apk-grid">
+            <div class="apk-card">
+              <span class="apk-badge apk-badge--prod">Prod</span>
+              <p class="apk-card__title">Version stable</p>
+              <div class="apk-qr" id="qr-prod" role="img" aria-label="QR code — APK Production"></div>
+              <p class="apk-card__hint">Scannez avec votre téléphone</p>
+              <a href="https://github.com/Ni-coco/ESP-Mindiff/releases/download/main-latest/app-release.apk"
+                 class="btn btn--primary apk-card__btn"
+                 aria-label="Télécharger l'APK version Production">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger
+              </a>
+            </div>
+            <div class="apk-card">
+              <span class="apk-badge apk-badge--dev">Dev</span>
+              <p class="apk-card__title">Version de développement</p>
+              <div class="apk-qr" id="qr-dev" role="img" aria-label="QR code — APK Dev"></div>
+              <p class="apk-card__hint">Scannez avec votre téléphone</p>
+              <a href="https://github.com/Ni-coco/ESP-Mindiff/releases/download/dev-latest/app-release.apk"
+                 class="btn apk-card__btn apk-card__btn--dev"
+                 aria-label="Télécharger l'APK version développement">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -364,6 +397,7 @@
     </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/main.js" defer></script>
 </body>
 </html>

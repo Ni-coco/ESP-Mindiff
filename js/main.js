@@ -209,6 +209,37 @@
   }
 
   // =========================================================
+  // 7. QR CODES — APK Android
+  // =========================================================
+  function initQRCodes() {
+    if (typeof QRCode === 'undefined') return;
+
+    var apks = [
+      {
+        id: 'qr-prod',
+        url: 'https://github.com/Ni-coco/ESP-Mindiff/releases/download/main-latest/app-release.apk'
+      },
+      {
+        id: 'qr-dev',
+        url: 'https://github.com/Ni-coco/ESP-Mindiff/releases/download/dev-latest/app-release.apk'
+      }
+    ];
+
+    apks.forEach(function (apk) {
+      var el = document.getElementById(apk.id);
+      if (!el) return;
+      new QRCode(el, {
+        text: apk.url,
+        width: 140,
+        height: 140,
+        colorDark: '#121212',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    });
+  }
+
+  // =========================================================
   // INIT
   // =========================================================
   function init() {
@@ -218,6 +249,7 @@
     initCounters();
     initParallax();
     initActiveNav();
+    initQRCodes();
   }
 
   if (document.readyState === 'loading') {

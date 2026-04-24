@@ -908,7 +908,124 @@ h3 { font-size: var(--fs-h3); font-weight: var(--fw-bold); }
 .store-btn__name { display: block; font-family: 'Poppins', sans-serif; font-weight: var(--fw-bold); font-size: .95rem; }
 .download__compat { font-size: var(--fs-small); color: var(--color-text-muted); }
 
-/* ---- 14. FOOTER ---- */
+/* ---- 14. APK DOWNLOAD ---- */
+.apk-wrapper {
+  width: 100%;
+  max-width: 600px;
+  margin-inline: auto;
+}
+.apk-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-block: 2rem 2.5rem;
+  color: var(--color-text-muted);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+.apk-divider::before,
+.apk-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+.apk-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+.apk-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .9rem;
+  padding: 2rem 1.25rem 1.5rem;
+  background: white;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.apk-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-blue);
+}
+.apk-badge {
+  position: absolute;
+  top: .9rem;
+  right: .9rem;
+  font-family: 'Poppins', sans-serif;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-tiny);
+  padding: .2rem .6rem;
+  border-radius: var(--radius-pill);
+  line-height: 1.5;
+  letter-spacing: .04em;
+}
+.apk-badge--prod {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  color: white;
+}
+.apk-badge--dev {
+  background: rgba(234,179,8,.12);
+  border: 1px solid rgba(234,179,8,.4);
+  color: #92400e;
+}
+.apk-card__title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: var(--fw-bold);
+  font-size: .9rem;
+  color: var(--color-text-dark);
+  margin-top: .25rem;
+}
+.apk-qr {
+  width: 152px;
+  height: 152px;
+  padding: .4rem;
+  background: white;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.apk-qr canvas,
+.apk-qr img { display: block; }
+.apk-card__hint {
+  font-size: var(--fs-tiny);
+  color: var(--color-text-muted);
+  margin-top: -.2rem;
+}
+.apk-card__btn {
+  width: 100%;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin-top: auto;
+  font-size: .875rem;
+}
+.apk-card__btn--dev {
+  background: transparent;
+  color: #92400e;
+  border: 1.5px solid rgba(234,179,8,.5);
+  box-shadow: none;
+}
+.apk-card__btn--dev:hover,
+.apk-card__btn--dev:focus-visible {
+  background: rgba(234,179,8,.08);
+  border-color: rgba(234,179,8,.75);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(234,179,8,.15);
+}
+@media (max-width: 480px) {
+  .apk-grid { grid-template-columns: 1fr; }
+  .apk-divider { white-space: normal; text-align: center; }
+}
+
+/* ---- 15. FOOTER ---- */
 .footer {
   background: var(--color-dark-bg);
   padding-top: 4rem;
@@ -963,14 +1080,14 @@ h3 { font-size: var(--fs-h3); font-weight: var(--fw-bold); }
 }
 .footer__bottom a:hover { color: rgba(255,255,255,.5); }
 
-/* ---- 15. FOCUS STYLES ---- */
+/* ---- 16. FOCUS STYLES ---- */
 :focus-visible {
   outline: 2px solid var(--color-secondary);
   outline-offset: 3px;
   border-radius: 4px;
 }
 
-/* ---- 16. RESPONSIVE ---- */
+/* ---- 17. RESPONSIVE ---- */
 @media (max-width: 1024px) {
   .hero__inner { gap: 2.5rem; }
   .balance__inner { gap: 3rem; }
