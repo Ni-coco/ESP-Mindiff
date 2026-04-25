@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import datetime
+from typing import TYPE_CHECKING
 
 import sqlalchemy.orm as sqlo
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 
 from app.db.database import Base
+
+if TYPE_CHECKING:
+    from app.models.exercise import Exercise
 
 
 class WorkoutWeek(Base):

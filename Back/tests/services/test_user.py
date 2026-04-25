@@ -12,7 +12,6 @@ Tests cover all user service functions with 100% coverage:
 - delete_user
 """
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash, verify_password

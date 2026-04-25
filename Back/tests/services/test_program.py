@@ -9,7 +9,6 @@ Tests cover all program service functions with 100% coverage:
 - delete_program: delete program
 """
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.program import Program

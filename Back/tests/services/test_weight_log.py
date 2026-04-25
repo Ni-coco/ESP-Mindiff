@@ -8,7 +8,6 @@ Tests cover all weight_log service functions with 100% coverage:
 
 import datetime
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.user import User, WeightLog

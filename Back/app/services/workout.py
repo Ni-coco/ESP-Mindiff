@@ -21,7 +21,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.exercise import Exercise, SecondaryMuscle
+from app.models.exercise import Exercise
 from app.models.workout import (
     CustomWorkout,
     CustomWorkoutExercise,

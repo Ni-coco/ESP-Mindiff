@@ -1,14 +1,12 @@
 """Tests for app.services.workout module."""
 
 import datetime
-from unittest.mock import MagicMock, patch
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.exercise import Exercise
 from app.models.user import User
-from app.models.workout import CustomWorkout, WorkoutSession, WorkoutWeek
+from app.models.workout import CustomWorkout, WorkoutWeek
 from app.services import workout as workout_service
 
 

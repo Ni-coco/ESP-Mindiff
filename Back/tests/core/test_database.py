@@ -6,12 +6,12 @@ loading with complete coverage for security and database initialization.
 """
 
 import os
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings, VaultConfig, load_settings, settings
+from app.core.config import Settings, VaultConfig, load_settings
 from app.db.database import SessionLocal, engine, get_db
 
 
@@ -109,7 +109,6 @@ class TestDatabaseSession:
         session = next(db_generator)
 
         # Mock the close method to track if it was called
-        original_close = session.close
         session.close = MagicMock()
 
         # Exhaust the generator

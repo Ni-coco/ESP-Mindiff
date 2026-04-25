@@ -62,5 +62,6 @@ jobs:
           POSTGRES_DB: mindiff_test
           POSTGRES_HOST: localhost
           POSTGRES_PORT: "5432"
+          SECRET_KEY: test-secret-key
           SKIP_ALEMBIC: "false"
         run: uv run pytest -ra

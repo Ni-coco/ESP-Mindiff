@@ -12,7 +12,6 @@ Tests cover:
 
 from http import HTTPStatus
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -369,7 +368,6 @@ class TestUserDelete:
         self, client: TestClient, auth_headers: dict, test_user, test_weight_log, db
     ):
         """Test that deleting user cascades to related records."""
-        from sqlalchemy.orm import Session
 
         user_id = test_user.id
         response = client.delete(f"/api/user/{user_id}", headers=auth_headers)

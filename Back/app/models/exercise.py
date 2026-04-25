@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlalchemy.orm as sqlo
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 
 from app.db.database import Base
 
