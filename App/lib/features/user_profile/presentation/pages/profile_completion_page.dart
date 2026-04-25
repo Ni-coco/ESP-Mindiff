@@ -83,7 +83,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
               const SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                value: selectedObjective,
+                initialValue: selectedObjective,
                 decoration: const InputDecoration(
                   labelText: "Objectif sportif",
                 ),

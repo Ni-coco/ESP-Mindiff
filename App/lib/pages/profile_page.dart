@@ -233,7 +233,7 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         CircleAvatar(
           radius: 48,
-          backgroundColor: TColors.primary.withOpacity(0.15),
+          backgroundColor: TColors.primary.withValues(alpha: 0.15),
           child: Text(initial, style: TextStyle(fontSize: 36, color: TColors.primary, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(height: 12),
@@ -294,13 +294,11 @@ class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  final Color? valueColor;
 
   const _InfoTile({
     required this.label,
     required this.value,
     required this.icon,
-    this.valueColor,
   });
 
   @override
@@ -314,7 +312,6 @@ class _InfoTile extends StatelessWidget {
           value,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: valueColor,
           ),
         ),
       ),

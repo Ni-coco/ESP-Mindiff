@@ -36,7 +36,7 @@ class ConsentPage extends StatelessWidget {
               title: const Text("Conditions Générales d'Utilisation"),
               subtitle: const Text("Nécessaire pour le fonctionnement de base de l'application."),
               value: consentService.hasConsentedCGU.value,
-              activeColor: TColors.primary,
+              activeThumbColor: TColors.primary,
               onChanged: (bool value) {
                 if (!value) {
                   Get.defaultDialog(
@@ -63,7 +63,7 @@ class ConsentPage extends StatelessWidget {
               title: const Text("Traitement des données de santé"),
               subtitle: const Text("Autorise l'utilisation de votre poids, âge et blessures pour l'IA."),
               value: consentService.hasConsentedHealthData.value,
-              activeColor: TColors.primary,
+              activeThumbColor: TColors.primary,
               onChanged: (bool value) {
                 consentService.updateHealthDataConsent(value);
                 if (!value) {

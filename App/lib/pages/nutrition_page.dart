@@ -127,10 +127,15 @@ class _NutritionPageState extends State<NutritionPage> {
 
     final sessions = _ctrl.sessionsPerWeek.value ?? 0;
     final double multiplier;
-    if (sessions <= 1) multiplier = 1.2;
-    else if (sessions <= 3) multiplier = 1.375;
-    else if (sessions <= 5) multiplier = 1.55;
-    else multiplier = 1.725;
+    if (sessions <= 1) {
+      multiplier = 1.2;
+    } else if (sessions <= 3) {
+      multiplier = 1.375;
+    } else if (sessions <= 5) {
+      multiplier = 1.55;
+    } else {
+      multiplier = 1.725;
+    }
 
     final tdee = bmr * multiplier;
 
@@ -144,7 +149,6 @@ class _NutritionPageState extends State<NutritionPage> {
   Future<void> _openAddSheet(String mealType) async {
     final controller = TextEditingController();
     bool isAnalyzing = false;
-    Map<String, dynamic>? preview;
 
     await showModalBottomSheet(
       context: context,
@@ -238,7 +242,7 @@ class _NutritionPageState extends State<NutritionPage> {
                               setSheetState(() => isAnalyzing = true);
                               try {
                                 final userId = _ctrl.userId.value!;
-                                final result = await _auth.addMeal(
+                                await _auth.addMeal(
                                   userId,
                                   mealType: mealType,
                                   description: controller.text.trim(),

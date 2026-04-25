@@ -588,12 +588,12 @@ class _SessionCard extends StatelessWidget {
             ]),
             const SizedBox(height: 16),
             Row(children: [
-              _InfoChip(context, Iconsax.clock, '${session.durationMinutes} min', isDark),
+              _infoChip(context, Iconsax.clock, '${session.durationMinutes} min', isDark),
               const SizedBox(width: 8),
-              _InfoChip(context, Iconsax.document, '$strength exos', isDark),
+              _infoChip(context, Iconsax.document, '$strength exos', isDark),
               if (hasCardio) ...[
                 const SizedBox(width: 8),
-                _InfoChip(context, Iconsax.heart, 'Cardio', isDark, color: Colors.red[300]),
+                _infoChip(context, Iconsax.heart, 'Cardio', isDark, color: Colors.red[300]),
               ],
             ]),
             const SizedBox(height: 12),
@@ -622,7 +622,7 @@ class _SessionCard extends StatelessWidget {
     }
   }
 
-  Widget _InfoChip(BuildContext context, IconData icon, String text, bool isDark, {Color? color}) {
+  Widget _infoChip(BuildContext context, IconData icon, String text, bool isDark, {Color? color}) {
     final c = color ?? TColors.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1030,8 +1030,11 @@ class _CustomBuilderSheetState extends State<_CustomBuilderSheet> {
                         trailing: GestureDetector(
                           onTap: () {
                             setState(() {
-                              if (isAdded) _selected.removeWhere((s) => s.id == ex.id);
-                              else _selected.add(ex);
+                              if (isAdded) {
+                                _selected.removeWhere((s) => s.id == ex.id);
+                              } else {
+                                _selected.add(ex);
+                              }
                             });
                           },
                           child: Container(

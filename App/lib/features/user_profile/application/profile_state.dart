@@ -20,7 +20,7 @@ class ProfileLoading extends ProfileState {
 
 /// 3. État chargé avec succès (le profil est prêt et complet)
 class ProfileLoaded extends ProfileState {
-  const ProfileLoaded(UserProfile profile) : super(profile);
+  const ProfileLoaded(super.profile);
 
   // Getter de commodité pour accéder au profil sans le '?'
   UserProfile get userProfile => profile!;
