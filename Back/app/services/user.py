@@ -71,10 +71,14 @@ def update_user(db: Session, user_id: int, user: UserUpdate) -> Optional[User]:
 
     # Métriques (crée ou met à jour la ligne dans user_metrics)
     if user.metrics is not None:
-        existing_metrics = db.query(UserMetrics).filter(UserMetrics.user_id == user_id).first()
+        existing_metrics = (
+            db.query(UserMetrics).filter(UserMetrics.user_id == user_id).first()
+        )
         if existing_metrics:
             existing_metrics.weight = user.metrics.weight
-            existing_metrics.actual_weight = user.metrics.actual_weight or user.metrics.weight
+            existing_metrics.actual_weight = (
+                user.metrics.actual_weight or user.metrics.weight
+            )
             existing_metrics.height = user.metrics.height
             existing_metrics.age = user.metrics.age
         else:
@@ -90,8 +94,11 @@ def update_user(db: Session, user_id: int, user: UserUpdate) -> Optional[User]:
         # Première entrée dans weight_log au jour de l'inscription
         from app.services.weight_log import add_weight_entry
         import datetime
+
         add_weight_entry(
-            db, user_id, user.metrics.weight,
+            db,
+            user_id,
+            user.metrics.weight,
             source="registration",
             date=datetime.date.today(),
         )

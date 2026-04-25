@@ -25,7 +25,9 @@ def get_exercises(
     if target:
         query = query.filter(Exercise.target == target)
     if secondary_muscle:
-        query = query.join(Exercise.secondary_muscles).filter(SecondaryMuscle.name == secondary_muscle)
+        query = query.join(Exercise.secondary_muscles).filter(
+            SecondaryMuscle.name == secondary_muscle
+        )
     return query.offset(skip).limit(limit).all()
 
 
@@ -45,11 +47,17 @@ def get_exercises_count(
     return query.count()
 
 
-def filter_exercises(db: Session, query: str, skip: int = 0, limit: int = 100) -> list[Exercise]:
+def filter_exercises(
+    db: Session, query: str, skip: int = 0, limit: int = 100
+) -> list[Exercise]:
     pattern = f"%{query}%"
     return (
         db.query(Exercise)
-        .filter(Exercise.name.ilike(pattern) | Exercise.target.ilike(pattern) | Exercise.body_part.ilike(pattern))
+        .filter(
+            Exercise.name.ilike(pattern)
+            | Exercise.target.ilike(pattern)
+            | Exercise.body_part.ilike(pattern)
+        )
         .offset(skip)
         .limit(limit)
         .all()

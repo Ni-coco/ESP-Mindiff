@@ -770,10 +770,15 @@ class _MetricsPageState extends State<MetricsPage> {
           getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
             final bmiVal = spot.y;
             final String status;
-            if (bmiVal < 18.5) status = 'Insuffisance';
-            else if (bmiVal < 25) status = 'Normal';
-            else if (bmiVal < 30) status = 'Surpoids';
-            else status = 'Obésité';
+            if (bmiVal < 18.5) {
+              status = 'Insuffisance';
+            } else if (bmiVal < 25) {
+              status = 'Normal';
+            } else if (bmiVal < 30) {
+              status = 'Surpoids';
+            } else {
+              status = 'Obésité';
+            }
             return LineTooltipItem(
               'IMC ${bmiVal.toStringAsFixed(1)}\n',
               const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),

@@ -21,7 +21,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.exercise import Exercise, SecondaryMuscle
+from app.models.exercise import Exercise
 from app.models.workout import (
     CustomWorkout,
     CustomWorkoutExercise,
@@ -175,12 +175,11 @@ def generate_workout_week(
             duration_minutes=duration_min,
         )
         db.add(session)
-        db.flush()
 
         for pos, ex in enumerate(chosen):
             db.add(
                 WorkoutSessionExercise(
-                    session_id=session.id,
+                    session=session,
                     exercise_id=ex.id,
                     position=pos,
                     sets=sets,
@@ -195,7 +194,7 @@ def generate_workout_week(
             cardio_ex = cardio_pool[0]
             db.add(
                 WorkoutSessionExercise(
-                    session_id=session.id,
+                    session=session,
                     exercise_id=cardio_ex.id,
                     position=len(chosen),
                     sets=1,

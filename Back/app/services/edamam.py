@@ -28,11 +28,19 @@ def analyze_nutrition(text: str) -> dict:
         raise ValueError(f"Réponse Edamam inattendue : {data}")
 
     # Agrège les nutriments depuis ingredients[].parsed[].nutrients
-    totals: dict[str, float] = {"ENERC_KCAL": 0, "PROCNT": 0, "FAT": 0, "CHOCDF": 0, "FIBTG": 0}
+    totals: dict[str, float] = {
+        "ENERC_KCAL": 0,
+        "PROCNT": 0,
+        "FAT": 0,
+        "CHOCDF": 0,
+        "FIBTG": 0,
+    }
     for ingredient in data.get("ingredients", []):
         for parsed in ingredient.get("parsed", []):
             for key in totals:
-                totals[key] += parsed.get("nutrients", {}).get(key, {}).get("quantity", 0)
+                totals[key] += (
+                    parsed.get("nutrients", {}).get(key, {}).get("quantity", 0)
+                )
 
     return {
         "calories": round(totals["ENERC_KCAL"], 1),

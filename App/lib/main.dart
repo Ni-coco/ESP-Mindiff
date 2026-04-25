@@ -14,7 +14,11 @@ void main() async {
   try {
     await dotenv.load(fileName: ".env");
   } catch (_) {
-    // Keep defaults when no local .env exists.
+    try {
+      await dotenv.load(fileName: ".env.example");
+    } catch (_) {
+      // Keep defaults when no local env asset exists.
+    }
   }
   
   await Get.putAsync(

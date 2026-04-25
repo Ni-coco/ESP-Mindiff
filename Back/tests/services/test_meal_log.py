@@ -9,7 +9,6 @@ Tests cover all meal_log service functions with 100% coverage:
 
 import datetime
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.user import MealLog, User
@@ -276,7 +275,7 @@ class TestGetMealsByDate:
     def test_get_meals_by_date_multiple_meals(self, db: Session, test_user: User):
         """Test getting multiple meals for same date."""
         date = datetime.date.today()
-        meal1 = meal_log_service.add_meal(
+        meal_log_service.add_meal(
             db,
             user_id=test_user.id,
             date=date,
@@ -288,7 +287,7 @@ class TestGetMealsByDate:
             carbs_g=40.0,
             fiber_g=2.0,
         )
-        meal2 = meal_log_service.add_meal(
+        meal_log_service.add_meal(
             db,
             user_id=test_user.id,
             date=date,

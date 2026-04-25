@@ -1,5 +1,6 @@
 import datetime
-from pydantic import BaseModel
+
+from pydantic import BaseModel, ConfigDict
 
 
 class AddMealRequest(BaseModel):
@@ -25,8 +26,7 @@ class MealResponse(BaseModel):
     carbs_g: float
     fiber_g: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DailyMealsResponse(BaseModel):

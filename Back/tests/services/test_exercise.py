@@ -8,10 +8,9 @@ Tests cover all exercise service functions with 100% coverage:
 - filter_exercises: search exercises by name/target/body_part
 """
 
-import pytest
 from sqlalchemy.orm import Session
 
-from app.models.exercise import Exercise, Instruction, SecondaryMuscle
+from app.models.exercise import Exercise
 from app.services import exercise as exercise_service
 
 
