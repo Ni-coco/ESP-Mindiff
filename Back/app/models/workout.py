@@ -29,7 +29,9 @@ class WorkoutWeek(Base):
         Boolean, nullable=False, default=False
     )
     created_at: sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(
-        DateTime, nullable=False, default=datetime.datetime.utcnow
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.UTC),
     )
 
     __table_args__ = (
@@ -101,7 +103,9 @@ class CustomWorkout(Base):
     )
     name: sqlo.Mapped[str] = sqlo.mapped_column(String, nullable=False)
     created_at: sqlo.Mapped[datetime.datetime] = sqlo.mapped_column(
-        DateTime, nullable=False, default=datetime.datetime.utcnow
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.UTC),
     )
 
     exercises: sqlo.Mapped[list[CustomWorkoutExercise]] = sqlo.relationship(

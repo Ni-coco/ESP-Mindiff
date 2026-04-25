@@ -27,7 +27,7 @@ jobs:
           POSTGRES_PASSWORD: mindiff_test
           POSTGRES_DB: mindiff_test
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U mindiff -d mindiff_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
