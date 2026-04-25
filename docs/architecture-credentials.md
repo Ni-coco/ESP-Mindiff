@@ -79,24 +79,6 @@
 | Dockerfile | `Back/Dockerfile` |
 | Docker context | `Back` |
 
-#### Variables d'environnement
-
-```env
-POSTGRES_USER=mindiff_user
-POSTGRES_PASSWORD=mindiff_password
-POSTGRES_DB=mindiff_db
-POSTGRES_HOST=mindiff-database-dev-j9ckf3
-POSTGRES_PORT=5432
-DATABASE_URL=postgresql://mindiff_user:mindiff_password@mindiff-database-dev-j9ckf3:5432/mindiff_db
-
-SECRET_KEY=ed3863ef4244cf9a81eba6b8e1cb640f0537576398d649f7804381ca40678ac9
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-DEBUG=True
-CORS_ORIGINS=https://mindev.nini.network
-```
-
 ### Base de données dev
 
 | Paramètre | Valeur |
@@ -147,24 +129,6 @@ CORS_ORIGINS=https://mindev.nini.network
 | Branche | `main` |
 | Dockerfile | `Back/Dockerfile` |
 | Docker context | `Back` |
-
-#### Variables d'environnement
-
-```env
-POSTGRES_USER=mindiff_user
-POSTGRES_PASSWORD=mindiff_password
-POSTGRES_DB=mindiff_db
-POSTGRES_HOST=mindiff-database-zsdxtt
-POSTGRES_PORT=5432
-DATABASE_URL=postgresql://mindiff_user:mindiff_password@mindiff-database-zsdxtt:5432/mindiff_db
-
-SECRET_KEY=ed3863ef4244cf9a81eba6b8e1cb640f0537576398d649f7804381ca40678ac9
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-DEBUG=False
-CORS_ORIGINS=https://mindiff.nini.network
-```
 
 ### Base de données prod
 
