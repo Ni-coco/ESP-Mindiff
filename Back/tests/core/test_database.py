@@ -487,9 +487,7 @@ class TestDatabaseIntegration:
         mock_settings.POSTGRES_PORT = 5433
 
         # Verify settings are used to construct URL
-        expected_url = (
-            "postgresql+psycopg2://test_user:test_pass@db-host:5433/test_db"
-        )
+        expected_url = "postgresql+psycopg2://test_user:test_pass@db-host:5433/test_db"
 
         actual_url = (
             f"postgresql+psycopg2://{mock_settings.POSTGRES_USER}:"

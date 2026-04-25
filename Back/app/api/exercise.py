@@ -43,9 +43,13 @@ def list_exercise(
     db: Session = Depends(get_db),
 ):
     exercises = service.get_exercises(
-        db=db, skip=skip, limit=limit,
-        body_part=body_part, equipment=equipment,
-        target=target, secondary_muscle=secondary_muscle,
+        db=db,
+        skip=skip,
+        limit=limit,
+        body_part=body_part,
+        equipment=equipment,
+        target=target,
+        secondary_muscle=secondary_muscle,
     )
     return [_fix_exercise(ex, request) for ex in exercises]
 

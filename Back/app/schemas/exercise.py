@@ -33,6 +33,7 @@ class ExerciseOut(BaseModel):
 
 class ExerciseShort(BaseModel):
     """Version allégée pour les listes et les workouts."""
+
     id: str
     name: str
     body_part: Optional[str] = None

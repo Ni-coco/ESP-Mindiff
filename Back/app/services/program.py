@@ -23,7 +23,7 @@ def create_program(db: Session, program: ProgramCreate) -> Program:
         description=program.description,
         difficulty=program.difficulty,
         calorie_burn=program.calorie_burn,
-        duration=program.duration
+        duration=program.duration,
     )
     db.add(db_program)
     db.commit()
@@ -31,7 +31,9 @@ def create_program(db: Session, program: ProgramCreate) -> Program:
     return db_program
 
 
-def update_program(db: Session, program_id: int, program: ProgramUpdate) -> Optional[type[Program]]:
+def update_program(
+    db: Session, program_id: int, program: ProgramUpdate
+) -> Optional[type[Program]]:
     """Update an existing program."""
     db_program = get_program(db, program_id)
     if not db_program:

@@ -14,7 +14,9 @@ from app.models.user import User
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
 async def register(user: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user.
@@ -23,16 +25,14 @@ async def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = user_service.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # Check if username already exists
     db_user = user_service.get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken"
         )
 
     # Create user
@@ -45,9 +45,7 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     Connect a user with email and password and return an access token.
     """
     user = user_service.authenticate_user(
-        db,
-        email=user_credentials.email,
-        password=user_credentials.password
+        db, email=user_credentials.email, password=user_credentials.password
     )
 
     if not user:
@@ -59,15 +57,13 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
         )
 
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email},
-        expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
 
     return {"access_token": access_token, "token_type": "bearer"}
@@ -75,8 +71,7 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
 
 @router.post("/login/form", response_model=Token)
 async def login_form(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
     """
     Connect a user with OAuth2 form data and return an access token.
@@ -84,7 +79,7 @@ async def login_form(
     user = user_service.authenticate_user(
         db,
         email=form_data.username,  # OAuth2 use "username" field for email
-        password=form_data.password
+        password=form_data.password,
     )
 
     if not user:
@@ -96,15 +91,13 @@ async def login_form(
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
         )
 
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email},
-        expires_delta=access_token_expires
+        data={"sub": user.email}, expires_delta=access_token_expires
     )
 
     return {"access_token": access_token, "token_type": "bearer"}
@@ -116,4 +109,3 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     Get the current authenticated user.
     """
     return current_user
-
