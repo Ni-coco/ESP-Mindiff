@@ -3,12 +3,13 @@
 #include "Display.h"
 #include "ConfigManager.h"
 
-// Lance la tâche de calibration Serial sur Core 1.
-// Commandes disponibles (envoyer un caractère via Serial) :
-//   t  → tare (zéro)
-//   +  → augmente le facteur de calibration
-//   -  → diminue le facteur de calibration
-//   c  → calibration avec poids connu (15s pour entrer la valeur en grammes)
+// Lance la tâche de calibration sur Core 1.
+// Consomme les CalibCommand depuis qCalibCmd (poussées par TaskCalibSerial ou BLE).
+// Protocole JSON identique des deux côtés :
+//   {"cmd":"tare"}                 → remet le zéro
+//   {"cmd":"calibrate","kg":1.0}   → calibre (tare préalable requis côté app)
+//   {"cmd":"adjust","dir":"+"}     → ajuste le facteur vers le haut
+//   {"cmd":"adjust","dir":"-"}     → ajuste le facteur vers le bas
 //
-// Le nouveau facteur est automatiquement persisté dans ConfigManager.
+// Le nouveau facteur est automatiquement persisté dans ConfigManager (NVS).
 void startTaskCalibration(Scale* scale, Display* display, ConfigManager* config);

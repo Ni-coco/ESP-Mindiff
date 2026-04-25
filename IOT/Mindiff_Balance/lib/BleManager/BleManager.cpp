@@ -1,8 +1,8 @@
 #include "BleManager.h"
 
-#ifndef NO_BLE  // tout ce fichier est exclu quand NO_BLE est défini
+#ifndef NO_BLE
 
-// ─── Callbacks internes ───────────────────────────────────────────────────────
+// ─── Callbacks ────────────────────────────────────────────────────────────────
 
 class BleServerCallbacks : public BLEServerCallbacks {
 public:
@@ -10,15 +10,16 @@ public:
     void onConnect(BLEServer*)    override { _mgr->_connected = true;  }
     void onDisconnect(BLEServer*) override {
         _mgr->_connected = false;
-        BLEDevice::getAdvertising()->start(); // continue d'advertiser si non provisionné
+        BLEDevice::getAdvertising()->start(); // re-advertise si déconnexion
     }
 private:
     BleManager* _mgr;
 };
 
-class BleWriteCallbacks : public BLECharacteristicCallbacks {
+// App → ESP32 : credentials WiFi (provisioning)
+class BleProvisionCallbacks : public BLECharacteristicCallbacks {
 public:
-    BleWriteCallbacks(BleManager* mgr) : _mgr(mgr) {}
+    BleProvisionCallbacks(BleManager* mgr) : _mgr(mgr) {}
     void onWrite(BLECharacteristic* pChar) override {
         String payload = String(pChar->getValue().c_str());
         if (!payload.isEmpty() && _mgr->_onProvision) {
@@ -29,30 +30,52 @@ private:
     BleManager* _mgr;
 };
 
+// App → ESP32 : commandes calibration JSON
+class BleCmdCallbacks : public BLECharacteristicCallbacks {
+public:
+    BleCmdCallbacks(BleManager* mgr) : _mgr(mgr) {}
+    void onWrite(BLECharacteristic* pChar) override {
+        String payload = String(pChar->getValue().c_str());
+        if (!payload.isEmpty() && _mgr->_onCalib) {
+            _mgr->_onCalib(payload);
+        }
+    }
+private:
+    BleManager* _mgr;
+};
+
 // ─── Public ───────────────────────────────────────────────────────────────────
 
-void BleManager::beginProvisioning(const char* deviceName, ProvisionCallback onProvision) {
+void BleManager::begin(const char* deviceName, ProvisionCallback onProvision, CalibCallback onCalib) {
     _onProvision = onProvision;
+    _onCalib     = onCalib;
 
     BLEDevice::init(deviceName);
     _server = BLEDevice::createServer();
     _server->setCallbacks(new BleServerCallbacks(this));
 
-    BLEService* service = _server->createService(BLE_SERVICE_UUID);
+    // numHandles=32 : on a 4 characteristics, la valeur par défaut (15) ne suffit pas
+    BLEService* service = _server->createService(BLEUUID(BLE_SERVICE_UUID), 32);
 
-    // Characteristic WRITE : reçoit le JSON de l'app
-    _provisionChar = service->createCharacteristic(
-        BLE_PROVISION_UUID,
-        BLECharacteristic::PROPERTY_WRITE
-    );
-    _provisionChar->setCallbacks(new BleWriteCallbacks(this));
+    // PROVISION : App → ESP32  (credentials WiFi, WRITE)
+    _provisionChar = service->createCharacteristic(BLE_PROVISION_UUID,
+        BLECharacteristic::PROPERTY_WRITE);
+    _provisionChar->setCallbacks(new BleProvisionCallbacks(this));
 
-    // Characteristic NOTIFY : renvoie un statut à l'app
-    _statusChar = service->createCharacteristic(
-        BLE_STATUS_UUID,
-        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-    );
+    // STATUS : ESP32 → App  (feedback provisioning, NOTIFY)
+    _statusChar = service->createCharacteristic(BLE_STATUS_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
     _statusChar->addDescriptor(new BLE2902());
+
+    // CMD : App → ESP32  (commandes calibration JSON, WRITE)
+    _cmdChar = service->createCharacteristic(BLE_CMD_UUID,
+        BLECharacteristic::PROPERTY_WRITE);
+    _cmdChar->setCallbacks(new BleCmdCallbacks(this));
+
+    // WEIGHT : ESP32 → App  (poids live JSON, NOTIFY)
+    _weightChar = service->createCharacteristic(BLE_WEIGHT_UUID,
+        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+    _weightChar->addDescriptor(new BLE2902());
 
     service->start();
 
@@ -67,13 +90,10 @@ void BleManager::notifyStatus(const String& status) {
     _statusChar->notify();
 }
 
-void BleManager::stopProvisioning() {
-    BLEDevice::getAdvertising()->stop();
-    BLEDevice::deinit(true);
-    _server        = nullptr;
-    _provisionChar = nullptr;
-    _statusChar    = nullptr;
-    _connected     = false;
+void BleManager::notifyWeight(const String& json) {
+    if (!_weightChar) return;
+    _weightChar->setValue(json.c_str());
+    _weightChar->notify();
 }
 
 bool BleManager::isClientConnected() const {

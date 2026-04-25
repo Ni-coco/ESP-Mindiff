@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 // ─── Toutes les données persistées en NVS ────────────────────────────────────
 struct Config {
@@ -22,6 +23,11 @@ public:
 
     // Sauvegarde la config complète en NVS
     void save(const Config& config);
+
+    // Parse un JSON de provisioning et sauvegarde si valide.
+    // Retourne false si le JSON est invalide ou incomplet.
+    // Format : {"ssid":"...","password":"...","token":"...","api_url":"...","user_id":1}
+    bool applyJson(const char* json, float currentCalibFactor = 1000.0f);
 
     // Efface tout en NVS (ex : credentials WiFi invalides)
     void clear();

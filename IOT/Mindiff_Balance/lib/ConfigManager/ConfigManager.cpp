@@ -1,5 +1,6 @@
 #include "ConfigManager.h"
 #include <Preferences.h>
+#include <ArduinoJson.h>
 
 static const char* NVS_NS      = "balance";
 static const char* KEY_SSID    = "ssid";
@@ -53,4 +54,27 @@ bool ConfigManager::isProvisioned() const {
 
 const Config& ConfigManager::get() const {
     return _config;
+}
+
+bool ConfigManager::applyJson(const char* json, float currentCalibFactor) {
+    StaticJsonDocument<512> doc;
+    if (deserializeJson(doc, json) != DeserializationError::Ok) return false;
+
+    String ssid  = doc["ssid"]  | "";
+    String token = doc["token"] | "";
+    int    uid   = doc["user_id"] | -1;
+
+    if (ssid.isEmpty() || token.isEmpty() || uid < 0) return false;
+
+    Config cfg;
+    cfg.ssid        = ssid;
+    cfg.password    = doc["password"] | "";
+    cfg.token       = token;
+    cfg.apiUrl      = doc["api_url"]  | "";
+    cfg.userId      = uid;
+    cfg.calibFactor = currentCalibFactor;
+    save(cfg);
+
+    Serial.printf("[Config] Sauvegarde OK (user %d)\n", uid);
+    return true;
 }

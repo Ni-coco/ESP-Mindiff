@@ -12,4 +12,8 @@ public:
     bool reconnect(uint32_t timeoutMs = 5000);
 
     bool isConnected() const;
+
+    // Appelé périodiquement — reconnecte automatiquement si la connexion est perdue.
+    // Retourne true si connecté, false sinon (ou après tentative échouée).
+    bool loop();
 };

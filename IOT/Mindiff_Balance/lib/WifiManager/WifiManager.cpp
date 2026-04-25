@@ -22,3 +22,11 @@ bool WifiManager::reconnect(uint32_t timeoutMs) {
 bool WifiManager::isConnected() const {
     return WiFi.status() == WL_CONNECTED;
 }
+
+bool WifiManager::loop() {
+    if (isConnected()) return true;
+    Serial.println("[WiFi] Connexion perdue, reconnexion...");
+    bool ok = reconnect(5000);
+    Serial.println(ok ? "[WiFi] Reconnecte" : "[WiFi] Echec reconnexion");
+    return ok;
+}
