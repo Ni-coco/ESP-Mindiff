@@ -42,8 +42,12 @@ public:
     bool isApiReachable()        { lock(); bool v = _apiReachable; unlock(); return v; }
 
     // Demande un health check immediat (ex: credentials changes)
-    void requestApiCheck()    { lock(); _apiCheckNeeded = true; _apiReachable = false; unlock(); }
+    void requestApiCheck()    { lock(); _apiCheckNeeded = true; _apiReachable = false; _tokenInvalid = false; unlock(); }
     bool takeApiCheckNeeded() { lock(); bool v = _apiCheckNeeded; _apiCheckNeeded = false; unlock(); return v; }
+
+    // Token invalide (401) → bloque l envoi jusqu a nouveaux credentials
+    void setTokenInvalid(bool v) { lock(); _tokenInvalid = v; unlock(); }
+    bool isTokenInvalid()        { lock(); bool v = _tokenInvalid; unlock(); return v; }
 
     // ── Calibration ────────────────────────────────────────────────────────
     void  setCalibPending(float kg)         { lock(); _calibKg = kg;   unlock(); }
@@ -96,6 +100,7 @@ private:
     bool              _calibOk        = false;
     float             _calibKgUsed    = 0.0f;
     bool              _apiReachable   = false;
+    bool              _tokenInvalid   = false;
     bool              _apiCheckNeeded = true;   // true au demarrage → health check immediat
     float             _pendingWeight = -1.0f;
     SemaphoreHandle_t _mutex        = nullptr;

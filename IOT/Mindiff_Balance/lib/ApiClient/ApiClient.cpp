@@ -20,6 +20,9 @@ void ApiClient::loop() {
         return;  // pas d envoi avant que l API reponde
     }
 
+    // ── Token invalide → on bloque sans spammer ───────────────────────────
+    if (_state.isTokenInvalid()) return;
+
     // ── Envoi du poids stable ─────────────────────────────────────────────
     float kg = _state.takePendingWeight();
     if (kg < 0.0f) return;  // rien a envoyer
@@ -89,8 +92,16 @@ bool ApiClient::_sendWeight(float kg) {
 
     int code = http.POST(bodyStr);
 
+    if (code == 401) {
+        Serial.println("[API] Token invalide (401) → envoi bloque, renvoyez les credentials");
+        _state.setTokenInvalid(true);
+        http.end();
+        return true;  // on ne remet PAS le poids en attente, le token est invalide
+    }
+
     if (code > 0) {
         Serial.println("[API] Reponse " + String(code) + " : " + http.getString());
+        _state.setTokenInvalid(false);
         http.end();
         return (code >= 200 && code < 300);
     } else {

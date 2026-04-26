@@ -15,6 +15,12 @@ void Display::begin() {
 }
 
 void Display::render() {
+    // Token invalide → ecran dedie, peu importe la phase
+    if (_state.isTokenInvalid()) {
+        _renderTokenInvalid();
+        return;
+    }
+
     switch (_state.getPhase()) {
         case AppPhase::WAITING_CREDENTIALS: _renderWaiting();     break;
         case AppPhase::CONNECTING:          _renderConnecting();   break;
@@ -107,6 +113,34 @@ void Display::_renderCalibrating() {
         _oled.setCursor(5, 50);
         _oled.println("Reessayez avec tare");
     }
+
+    _oled.display();
+}
+
+void Display::_renderTokenInvalid() {
+    float kg = _state.getWeight();
+
+    _oled.clearDisplay();
+
+    // ── Message d erreur ──────────────────────────────────────────────────
+    _oled.setTextSize(1);
+    _oled.setCursor(10, 0);
+    _oled.print("Token API expire !");
+
+    // ── Poids en petit (la balance continue de mesurer) ───────────────────
+    _oled.setTextSize(2);
+    _oled.setCursor(0, 18);
+    _oled.printf("%.2f kg", kg);
+
+    // ── Separateur ────────────────────────────────────────────────────────
+    _oled.drawFastHLine(0, 38, 128, SSD1306_WHITE);
+
+    // ── Instruction ───────────────────────────────────────────────────────
+    _oled.setTextSize(1);
+    _oled.setCursor(5, 44);
+    _oled.print("Renvoyez via BLE :");
+    _oled.setCursor(5, 55);
+    _oled.print("cmd:api + token");
 
     _oled.display();
 }
