@@ -11,7 +11,7 @@ Tests cover:
 """
 
 from http import HTTPStatus
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -158,7 +158,6 @@ class TestGetCurrentSuperuser:
         Test get_current_superuser directly when user is not superuser (lines 66-71).
         This ensures the is_superuser check is covered.
         """
-        import pytest
         from fastapi import HTTPException
 
         from app.core.dependencies import get_current_superuser
@@ -168,7 +167,6 @@ class TestGetCurrentSuperuser:
 
         # Call get_current_superuser directly with a non-superuser
         with pytest.raises(HTTPException) as exc_info:
-            pytest_asyncio_fixture = AsyncMock()
             # We need to test this via async context
             import asyncio
 
@@ -213,7 +211,6 @@ class TestDirectDependencyFunctions:
         Test get_current_user directly when user is not found (line 54).
         This ensures the `if user is None` check is covered.
         """
-        import pytest
         from fastapi import HTTPException
 
         from app.core.dependencies import get_current_user
@@ -239,7 +236,6 @@ class TestDirectDependencyFunctions:
         Test get_current_superuser directly when user is not superuser (lines 66-71).
         This ensures the `if not current_user.is_superuser` check is covered.
         """
-        import pytest
         from fastapi import HTTPException
 
         from app.core.dependencies import get_current_superuser

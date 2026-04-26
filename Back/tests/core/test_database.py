@@ -6,12 +6,12 @@ loading with complete coverage for security and database initialization.
 """
 
 import os
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings, VaultConfig, load_settings, settings
+from app.core.config import Settings, VaultConfig, load_settings
 from app.db.database import SessionLocal, engine, get_db
 
 
@@ -109,7 +109,6 @@ class TestDatabaseSession:
         session = next(db_generator)
 
         # Mock the close method to track if it was called
-        original_close = session.close
         session.close = MagicMock()
 
         # Exhaust the generator
@@ -488,9 +487,7 @@ class TestDatabaseIntegration:
         mock_settings.POSTGRES_PORT = 5433
 
         # Verify settings are used to construct URL
-        expected_url = (
-            "postgresql+psycopg2://test_user:test_pass@db-host:5433/test_db"
-        )
+        expected_url = "postgresql+psycopg2://test_user:test_pass@db-host:5433/test_db"
 
         actual_url = (
             f"postgresql+psycopg2://{mock_settings.POSTGRES_USER}:"

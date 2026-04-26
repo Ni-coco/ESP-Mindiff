@@ -10,6 +10,8 @@ import 'package:mindiff_app/pages/login_page.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/services/api_client.dart';
 import 'package:mindiff_app/services/auth_service.dart';
+// AJOUT : Import du ConsentService
+import 'package:mindiff_app/services/consent_service.dart';
 
 class RegisterOnboardingPage extends StatelessWidget {
   const RegisterOnboardingPage({super.key});
@@ -909,7 +911,7 @@ class _Step4ActivityLevelState extends State<_Step4ActivityLevel> {
   }
 }
 
-// Step 5: Health Considerations
+// Step 5: Health Considerations & Consent (MODIFIÉ POUR LE RGPD)
 class _Step5HealthConsiderations extends StatefulWidget {
   final RegisterOnboardingController controller;
   
@@ -923,6 +925,9 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _healthController;
 
+  // Récupération du ConsentService
+  final ConsentService _consentService = Get.find<ConsentService>();
+
   @override
   void initState() {
     super.initState();
@@ -935,11 +940,35 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
       widget.controller.setHealthConsiderations(_healthController.text);
     });
 
-    // Register complete callback (on lance l'async sans l'await ici)
+    // Register complete callback
     widget.controller.registerCompleteCallback(() { _completeRegistration(); });
   }
 
   Future<void> _completeRegistration() async {
+    // === VÉRIFICATION RGPD AVANT INSCRIPTION ===
+    if (!_consentService.hasConsentedCGU.value) {
+      Get.snackbar(
+        'Action requise',
+        'Vous devez accepter les CGU pour finaliser l\'inscription.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red[100],
+        colorText: Colors.red[900],
+      );
+      return; // On bloque l'API
+    }
+
+    if (!_consentService.hasConsentedHealthData.value) {
+      Get.snackbar(
+        'Action requise',
+        'Le traitement des données de santé est nécessaire pour personnaliser le programme.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red[100],
+        colorText: Colors.red[900],
+      );
+      return; // On bloque l'API
+    }
+    // ===========================================
+
     final c = widget.controller;
     final authService = Get.find<AuthService>();
     final userProfileController = Get.find<UserProfileController>();
@@ -1024,10 +1053,7 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
         message = 'Ce nom d\'utilisateur est déjà pris';
       }
       Get.snackbar('Erreur', message, snackPosition: SnackPosition.BOTTOM);
-    } catch (e, st) {
-      // Debug temporaire: expose la vraie erreur dans le terminal Flutter.
-      debugPrint('Registration flow unexpected error: $e');
-      debugPrintStack(stackTrace: st);
+    } catch (_) {
       Get.back(); // Fermer le loader
       Get.snackbar('Erreur', 'Impossible de se connecter au serveur',
           snackPosition: SnackPosition.BOTTOM);
@@ -1069,6 +1095,77 @@ class _Step5HealthConsiderationsState extends State<_Step5HealthConsiderations> 
                     : Colors.grey[600],
               ),
             ),
+            
+            const SizedBox(height: 32),
+            
+            // === SECTION CONSENTEMENTS RGPD ===
+            Text(
+              "Confidentialité & Consentement",
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            Container(
+              decoration: BoxDecoration(
+                color: THelperFunctions.isDarkMode(context) 
+                    ? Colors.grey[900] 
+                    : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: THelperFunctions.isDarkMode(context) 
+                      ? Colors.grey[800]! 
+                      : Colors.grey[300]!,
+                ),
+              ),
+              child: Column(
+                children: [
+                 Obx(() => CheckboxListTile(
+                        title: Text(
+                          "J'accepte les Conditions Générales d'Utilisation de Mindiff.",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        value: _consentService.hasConsentedCGU.value,
+                        onChanged: (value) {
+                          if (value != null) {
+                            // On utilise la bonne méthode du service
+                            _consentService.updateCGUConsent(value);
+                          }
+                        },
+                        activeColor: TColors.primary,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      )),
+                  
+                  Divider(
+                    height: 1, 
+                    color: THelperFunctions.isDarkMode(context) 
+                        ? Colors.grey[800] 
+                        : Colors.grey[300]
+                  ),
+                  
+                  // 2. Consentement Données de Santé
+                  Obx(() => CheckboxListTile(
+                        title: Text(
+                          "Je consens expressément au traitement de mes données de santé (âge, poids, blessures) par l'application dans le but exclusif de générer un programme personnalisé.",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        value: _consentService.hasConsentedHealthData.value,
+                        onChanged: (value) {
+                          if (value != null) {
+                            // On utilise la bonne méthode du service
+                            _consentService.updateHealthDataConsent(value);
+                          }
+                        },
+                        activeColor: TColors.primary,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      )),
+                ],
+              ),
+            ),
+            // ==================================
           ],
         ),
       ),
@@ -1177,4 +1274,3 @@ class RegisterOnboardingController extends GetxController {
     super.onClose();
   }
 }
-

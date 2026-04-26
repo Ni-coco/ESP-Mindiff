@@ -476,7 +476,7 @@ class TestGetMealSuggestions:
         }
         mock_choice.side_effect = lambda x: x[0]  # Return first query
 
-        result = meal_suggestions_service.get_meal_suggestions(db, user.id)
+        meal_suggestions_service.get_meal_suggestions(db, user.id)
 
         # Should have used build_muscle queries
         assert mock_fetch.called

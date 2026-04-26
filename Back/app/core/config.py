@@ -1,7 +1,7 @@
 import os
 
 import hvac
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 VAULT_PATH = "mindiff"
 
@@ -50,10 +50,11 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     CORS_ORIGINS: str = "*"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",
+    )
 
 
 def load_settings() -> Settings:

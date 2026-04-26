@@ -1,33 +1,37 @@
 # ESP-Mindiff
 
-## Deployment (Dokploy + Flutter Web/APK)
+## Infrastructure documentation
+
+- Complete architecture and environment credentials are documented in `docs/architecture-credentials.md`.
+
+## CI (GitHub Actions) + Deployment (Dokploy)
 
 This repository is prepared to:
-- build and push backend and Flutter web Docker images on each push to `main`,
-- trigger Dokploy redeploys via webhooks,
-- build an Android APK and publish/update a rolling GitHub Release (`main-latest`).
+- run CI checks for backend and Flutter app on `dev` and `main`,
+- build Android APKs and publish/update rolling GitHub Releases (`dev-latest`, `main-latest`),
+- keep deployment responsibility in Dokploy.
 
 ### CI/CD workflows
 
-- `.github/workflows/deploy-back-web.yml`
-  - builds and pushes:
-    - `ghcr.io/<owner>/<repo>/backend:latest`
-    - `ghcr.io/<owner>/<repo>/app-web:latest`
-  - optionally calls Dokploy redeploy webhooks.
+- `.github/workflows/ci-back.yml`
+  - FastAPI backend checks (`ruff` + `pytest`) with PostgreSQL service.
+- `.github/workflows/ci-app.yml`
+  - Flutter app checks (`flutter analyze` + `flutter test`).
 - `.github/workflows/build-android-apk.yml`
   - builds `App/build/app/outputs/flutter-apk/app-release.apk`
   - uploads workflow artifact
   - updates release tag `main-latest` with the latest APK.
+- `.github/workflows/build-android-apk-dev.yml`
+  - same APK build pipeline on branch `dev`
+  - updates release tag `dev-latest`.
 
 ### Required GitHub secrets/variables
 
 Set these in repository settings:
 
-- Secrets:
-  - `DOKPLOY_WEBHOOK_BACKEND` (optional; backend redeploy webhook)
-  - `DOKPLOY_WEBHOOK_WEB` (optional; web redeploy webhook)
 - Variables:
-  - `APP_API_BASE_URL` (recommended; e.g. `https://api.example.com/api`)
+  - `APP_API_BASE_URL_DEV` (used by `build-android-apk-dev.yml`)
+  - `APP_API_BASE_URL_PROD` (used by `build-android-apk.yml`)
 
 ### Dokploy service setup
 
@@ -53,9 +57,7 @@ Create two services in Dokploy (Docker image mode):
    - Healthcheck path: `/health`
    - Public domain: `https://app.example.com`
 
-After service creation, copy each Dokploy deploy webhook URL into:
-- `DOKPLOY_WEBHOOK_BACKEND`
-- `DOKPLOY_WEBHOOK_WEB`
+Deployment is managed directly in Dokploy (no GitHub deploy webhook required for CI).
 
 ### Database migrations behavior
 

@@ -20,15 +20,17 @@ class UnauthorizedException extends ApiException {
 class ApiClient extends GetxService {
   static const String _tokenKey = 'jwt_token';
 
+  // 👉 L'IP est corrigée pour Linux/Web (127.0.0.1)
   final String baseUrl;
 
   String? _token;
 
-  ApiClient({required this.baseUrl});
-
+  ApiClient({this.baseUrl = 'http://localhost:8082'});
+  
   bool get isAuthenticated => _token != null;
   String? get token => _token;
 
+  // 👉 On utilise SharedPreferences qui ne demande pas de config Linux compliquée
   Future<ApiClient> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);

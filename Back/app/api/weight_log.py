@@ -19,9 +19,7 @@ def get_weight_history(
         raise HTTPException(status_code=403, detail="Accès refusé")
 
     entries = service.get_weight_history(db, user_id)
-    return WeightHistoryResponse(
-        entries=[WeightLogEntry(**e) for e in entries]
-    )
+    return WeightHistoryResponse(entries=[WeightLogEntry(**e) for e in entries])
 
 
 @router.post("/{user_id}/weight", response_model=WeightLogEntry)
