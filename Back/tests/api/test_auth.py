@@ -286,6 +286,28 @@ class TestAuthTokenValidation:
         assert payload["sub"] == "test@example.com"
         assert "exp" in payload
 
+    def test_device_token_success(self, client: TestClient, auth_headers: dict):
+        """Authenticated user can obtain a device token."""
+        response = client.post("/api/auth/device-token", headers=auth_headers)
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+        # Device token has no expiry — verify by decoding
+        from jose import jwt
+        from app.core.config import settings
+        payload = jwt.decode(
+            data["access_token"], settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+            options={"verify_exp": False},
+        )
+        assert payload.get("scope") == "device"
+        assert "exp" not in payload
+
+    def test_device_token_requires_auth(self, client: TestClient):
+        """Unauthenticated request for device token is rejected."""
+        response = client.post("/api/auth/device-token")
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
     def test_superuser_can_access_protected_endpoint(
         self, client: TestClient, superuser_auth_headers: dict
     ):

@@ -240,6 +240,49 @@ class TestWeightAdd:
         assert len(entries) == 1
         assert entries[0].weight == 75.5
 
+    def test_add_weight_with_device_token(
+        self, client: TestClient, test_user
+    ):
+        """Device token (scope=device) can post weight for its user."""
+        from app.core.security import create_device_token
+
+        token = create_device_token(user_id=test_user.id, email=test_user.email)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = client.post(
+            f"/api/user/{test_user.id}/weight",
+            headers=headers,
+            json={"weight": 80.0, "source": "balance"},
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json()["source"] == "balance"
+
+    def test_add_weight_device_token_wrong_user(
+        self, client: TestClient, test_user, db
+    ):
+        """Device token cannot post weight for a different user."""
+        from app.core.security import create_device_token, get_password_hash
+        from app.models.user import User
+
+        other = User(
+            email="other2@example.com",
+            username="other2user",
+            hashed_password=get_password_hash("pass123"),
+            is_active=True,
+        )
+        db.add(other)
+        db.commit()
+
+        token = create_device_token(user_id=test_user.id, email=test_user.email)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        response = client.post(
+            f"/api/user/{other.id}/weight",
+            headers=headers,
+            json={"weight": 80.0},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
     def test_add_weight_different_dates(
         self, client: TestClient, auth_headers: dict, test_user, db
     ):

@@ -120,4 +120,14 @@ void main() {
 
     expect(apiClient.lastPath, '/exercise/filter?q=bench%20press&limit=10');
   });
+
+  test('getDeviceToken retourne le access_token', () async {
+    apiClient.response = {'access_token': 'device-jwt-token', 'token_type': 'bearer'};
+
+    final token = await authService.getDeviceToken();
+
+    expect(apiClient.lastPath, '/auth/device-token');
+    expect(apiClient.lastBody, {});
+    expect(token, 'device-jwt-token');
+  });
 }
