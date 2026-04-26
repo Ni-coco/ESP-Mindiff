@@ -1,0 +1,80 @@
+name: CI IoT
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "IOT/**"
+      - ".github/workflows/ci-iot.yml"
+  push:
+    branches: [dev, main]
+    paths:
+      - "IOT/**"
+      - ".github/workflows/ci-iot.yml"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 1 — Tests unitaires natifs (rapide, ~1-2 min)
+# Compile et exécute les suites Unity sans matériel ESP32
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  native-tests:
+    name: Native unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: IOT/Mindiff_Balance
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Cache PlatformIO global packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-native-${{ runner.os }}-${{ hashFiles('IOT/Mindiff_Balance/platformio.ini') }}
+          restore-keys: pio-native-${{ runner.os }}-
+
+      - name: Run native unit tests
+        run: pio test -e native
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 2 — Vérification de compilation firmware ESP32 (plus lent, ~5-8 min)
+# S'assure que le firmware compile sans uploader sur la carte
+# ──────────────────────────────────────────────────────────────────────────────
+  firmware-build:
+    name: Firmware compile check (ESP32)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: IOT/Mindiff_Balance
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Cache PlatformIO global packages (toolchain ESP32)
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-esp32-${{ runner.os }}-${{ hashFiles('IOT/Mindiff_Balance/platformio.ini') }}
+          restore-keys: pio-esp32-${{ runner.os }}-
+
+      - name: Build firmware (upesy_wroom)
+        run: pio run -e upesy_wroom

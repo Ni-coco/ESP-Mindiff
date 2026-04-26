@@ -1,207 +1,114 @@
-#include <Wire.h>
-#include "HX711.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+﻿#include <Arduino.h>
+#include "GlobalState.h"
+#include "ConfigManager.h"
+#include "Scale.h"
+#include "Display.h"
+#include "BatteryMonitor.h"
+#include "CommandHandler.h"
+#include "WifiManager.h"
+#include "ApiClient.h"
 
-// HX711
-const int LOADCELL_DOUT_PIN = 16;
-const int LOADCELL_SCK_PIN = 4;
+#ifdef NO_BLE
+    #include "SerialComm.h"
+#else
+    #include "BleComm.h"
+#endif
 
-HX711 scale;
+#define PIN_DOUT  13
+#define PIN_SCK   14
+#define PIN_BAT   34
 
-// OLED
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+GlobalState    state;
+ConfigManager  config;
+Scale          scale(PIN_DOUT, PIN_SCK, state, config);
+Display        display(state);
+BatteryMonitor battery(PIN_BAT, state);
+WifiManager    wifi(state, config);
+ApiClient      apiClient(state, config);
+CommandHandler commandHandler(scale, state, config);
 
-float calibration_factor = 1000.0;
+#ifdef NO_BLE
+    SerialComm comm(state, commandHandler);
+#else
+    BleComm    comm(state, commandHandler);
+#endif
 
-// BLE UUIDs (uniques pour ton app)
-#define SERVICE_UUID        "12345678-1234-1234-1234-123456789abc"
-#define CHARACTERISTIC_UUID "abcd1234-ab12-cd34-ef56-abcdef123456"
+// ── Tasks ─────────────────────────────────────────────────────────────────────
 
-BLEServer* pServer = nullptr;
-BLECharacteristic* pCharacteristic = nullptr;
-bool deviceConnected = false;
-
-// Callbacks connexion BLE
-class MyServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    deviceConnected = true;
-    display.fillRect(0, 56, SCREEN_WIDTH, 8, SSD1306_BLACK);
-    display.setTextSize(1);
-    display.setCursor(0, 56);
-    display.println("BLE: Connecte");
-    display.display();
-  }
-  void onDisconnect(BLEServer* pServer) {
-    deviceConnected = false;
-    pServer->startAdvertising(); // relance l'advertising
-    display.fillRect(0, 56, SCREEN_WIDTH, 8, SSD1306_BLACK);
-    display.setTextSize(1);
-    display.setCursor(0, 56);
-    display.println("BLE: Attente...");
-    display.display();
-  }
-};
-
-void printHelp() {
-  display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.println("t:tare c:cal +:+ -:-");
-  display.display();
+void taskScale(void*) {
+    while (true) {
+        scale.loop();
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
 }
 
+void taskDisplay(void*) {
+    while (true) {
+        display.render();
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+}
+
+void taskBattery(void*) {
+    while (true) {
+        battery.loop();
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+void taskComm(void*) {
+    while (true) {
+        comm.loop();
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+void taskWifi(void*) {
+    while (true) {
+        wifi.loop();
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+void taskApi(void*) {
+    while (true) {
+        apiClient.loop();
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+// ── Setup / Loop ──────────────────────────────────────────────────────────────
+
 void setup() {
-  Serial.begin(115200);
-  delay(10);
+    Serial.begin(115200);
 
-  // Init scale
-  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-  scale.set_scale(calibration_factor);
-  scale.tare();
+    config.load();
+    state.init();
+    state.setName(config.getName());
 
-  // Init display
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("SSD1306 allocation failed");
-  }
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("Balance initialisee");
-  display.display();
-  delay(500);
+    if (config.getWifiSsid().length() > 0) {
+        state.setWifiCredentials(config.getWifiSsid(), config.getWifiPassword());
+    }
 
-  // Init BLE
-  BLEDevice::init("Balance-ESP32");
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
+    AppPhase initialPhase = config.getWifiSsid().length() > 0
+        ? AppPhase::CONNECTING           // credentials connus → tente connexion
+        : AppPhase::WAITING_CREDENTIALS; // pas de credentials → attente
+    state.setPhase(initialPhase);
 
-  BLEService* pService = pServer->createService(SERVICE_UUID);
-  pCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID,
-    BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
-  );
-  pCharacteristic->addDescriptor(new BLE2902());
-  pService->start();
+    scale.begin(config.getCalibFactor());
+    display.begin();
+    battery.begin();
+    wifi.begin();
+    comm.begin(config.getName());
 
-  BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(SERVICE_UUID);
-  pAdvertising->start();
-
-  display.setCursor(0, 10);
-  display.println("BLE: Attente...");
-  display.display();
-  delay(500);
-  printHelp();
+    xTaskCreatePinnedToCore(taskScale,   "Scale",   2048, nullptr, 1, nullptr, 1);
+    xTaskCreatePinnedToCore(taskDisplay, "Display", 4096, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskBattery, "Battery", 2048, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskComm,    "Comm",    4096, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskWifi,    "Wifi",    4096, nullptr, 1, nullptr, 1);
+    xTaskCreatePinnedToCore(taskApi,     "Api",     8192, nullptr, 1, nullptr, 1);
 }
 
 void loop() {
-  if (!scale.is_ready()) {
-    Serial.println("HX711 not found.");
-    delay(1000);
-    return;
-  }
-
-  float weight_g = scale.get_units(10);
-  float weight_kg = weight_g / 1000.0;
-
-  // Envoie le poids via BLE
-  if (deviceConnected) {
-    String weightStr = String(weight_kg, 3);
-    pCharacteristic->setValue(weightStr.c_str());
-    pCharacteristic->notify();
-  }
-
-  // Affichage OLED
-  display.fillRect(0, 0, SCREEN_WIDTH, 36, SSD1306_BLACK);
-  display.setTextSize(2);
-  display.setCursor(0, 0);
-  display.print(weight_kg, 3);
-  display.println(" kg");
-  display.setTextSize(1);
-  display.setCursor(0, 30);
-  display.print("Cal: ");
-  display.println(calibration_factor, 1);
-  display.display();
-
-  // Commandes Serial
-  if (Serial.available()) {
-    char c = Serial.read();
-    if (c == 't') {
-      scale.tare();
-      display.fillRect(20, 18, 88, 12, SSD1306_BLACK);
-      display.setTextSize(1);
-      display.setCursor(24, 20);
-      display.println("Tare: done");
-      display.display();
-      delay(800);
-    } else if (c == '+') {
-      calibration_factor *= 0.95;
-      scale.set_scale(calibration_factor);
-    } else if (c == '-') {
-      calibration_factor *= 1.05;
-      scale.set_scale(calibration_factor);
-    } else if (c == 'c') {
-      unsigned long start = millis();
-      const unsigned long timeout = 15000;
-      String buf = "";
-      display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-      display.setTextSize(1);
-      display.setCursor(0, 36);
-      display.println("Calibrate:");
-      display.println("Place known weight");
-      display.println("Type grams within 15s");
-      display.display();
-      while (millis() - start < timeout) {
-        while (Serial.available()) {
-          char ch = Serial.read();
-          if (ch == '\r') continue;
-          if (ch == '\n') {
-            float known = buf.toFloat();
-            if (known > 0.0) {
-              long raw = scale.read_average(20);
-              float newCal = (float)raw / known;
-              calibration_factor = newCal;
-              scale.set_scale(calibration_factor);
-              display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-              display.setCursor(0, 36);
-              display.println("Calibration done");
-              display.print("Cal: "); display.println(calibration_factor, 1);
-              display.display();
-              delay(1500);
-            } else {
-              display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-              display.setCursor(0, 36);
-              display.println("Invalid weight");
-              display.display();
-              delay(1200);
-            }
-            buf = "";
-            goto calib_done;
-          } else if (isDigit(ch) || ch == '.') {
-            buf += ch;
-            display.fillRect(0, 52, SCREEN_WIDTH, 12, SSD1306_BLACK);
-            display.setCursor(0, 52);
-            display.print(buf);
-            display.display();
-          }
-        }
-        delay(50);
-      }
-      display.fillRect(0, 36, SCREEN_WIDTH, 28, SSD1306_BLACK);
-      display.setCursor(0, 36);
-      display.println("Calibration timeout");
-      display.display();
-      delay(1000);
-      calib_done: ;
-    }
-  }
-
-  delay(300);
+    vTaskDelete(NULL);
 }

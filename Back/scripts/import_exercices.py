@@ -108,7 +108,7 @@ def import_exercices(json_file_path: str):
 
         # Commit final
         db.commit()
-        print(f"\n✅ Import terminé!")
+        print("\n✅ Import terminé!")
         print(f"   - Exercices importés: {imported_count}")
         print(f"   - Exercices ignorés (déjà existants): {skipped_count}")
 
