@@ -70,6 +70,12 @@ void CommandHandler::handle(const String& json) {
             Serial.println("[CMD] Credentials API mis a jour → health check");
         }
 
+    } else if (strcmp(cmd, "status") == 0) {
+        bool synced = _config.getWifiSsid().length() > 0;
+        String resp = String("{\"type\":\"status\",\"synced\":") + (synced ? "true" : "false") + "}";
+        _state.setPendingResponse(resp);
+        Serial.println("[CMD] Status demande → synced=" + String(synced));
+
     } else if (strcmp(cmd, "calib") == 0) {
         float knownKg = doc["weight"] | 0.0f;
         if (knownKg > 0.0f) {

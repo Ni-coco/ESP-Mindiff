@@ -2,6 +2,7 @@
 #ifndef NO_BLE
 
 void BleComm::begin(const String& deviceName) {
+    BLEDevice::setMTU(512);
     BLEDevice::init(deviceName.c_str());
 
     BLEServer* server = BLEDevice::createServer();

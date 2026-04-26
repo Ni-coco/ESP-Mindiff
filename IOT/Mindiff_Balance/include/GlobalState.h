@@ -71,6 +71,16 @@ public:
         return v;  // -1 = rien a envoyer
     }
 
+    // ── Reponse BLE en attente ─────────────────────────────────────────────
+    void   setPendingResponse(const String& msg) { lock(); _pendingResponse = msg; unlock(); }
+    String takePendingResponse() {
+        lock();
+        String v = _pendingResponse;
+        _pendingResponse = "";
+        unlock();
+        return v;
+    }
+
     // ── Nom de la balance ──────────────────────────────────────────────────
     void   setName(const String& name) { lock(); _name = name; unlock(); }
     String getName()                   { lock(); String v = _name; unlock(); return v; }
@@ -102,6 +112,7 @@ private:
     bool              _apiReachable   = false;
     bool              _tokenInvalid   = false;
     bool              _apiCheckNeeded = true;   // true au demarrage → health check immediat
-    float             _pendingWeight = -1.0f;
-    SemaphoreHandle_t _mutex        = nullptr;
+    float             _pendingWeight    = -1.0f;
+    String            _pendingResponse  = "";
+    SemaphoreHandle_t _mutex           = nullptr;
 };

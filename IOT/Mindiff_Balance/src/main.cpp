@@ -86,6 +86,10 @@ void setup() {
     state.init();
     state.setName(config.getName());
 
+    if (config.getWifiSsid().length() > 0) {
+        state.setWifiCredentials(config.getWifiSsid(), config.getWifiPassword());
+    }
+
     AppPhase initialPhase = config.getWifiSsid().length() > 0
         ? AppPhase::CONNECTING           // credentials connus → tente connexion
         : AppPhase::WAITING_CREDENTIALS; // pas de credentials → attente

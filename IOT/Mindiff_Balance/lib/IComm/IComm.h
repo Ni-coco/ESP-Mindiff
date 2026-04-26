@@ -16,13 +16,21 @@ public:
     virtual bool   isConnected()                    = 0;
 
     void loop() {
-        _state.setConnected(isConnected());
+        bool nowConnected = isConnected();
+        _wasConnected = nowConnected;
+        _state.setConnected(nowConnected);
 
         // Envoie les donnees seulement si operationnel
-        if (isConnected() && _state.getPhase() == AppPhase::OPERATIONAL) {
+        if (nowConnected && _state.getPhase() == AppPhase::OPERATIONAL) {
             String json = "{\"weight\":"  + String(_state.getWeight(),  2) +
                           ",\"battery\":" + String(_state.getBattery())    + "}";
             send(json);
+        }
+
+        // Envoie une reponse en attente (ex: status)
+        if (nowConnected) {
+            String pending = _state.takePendingResponse();
+            if (pending.length() > 0) send(pending);
         }
 
         // Recoit les commandes dans toutes les phases
@@ -32,7 +40,9 @@ public:
         }
     }
 
+
 protected:
     GlobalState&    _state;
     CommandHandler& _cmdHandler;
+    bool            _wasConnected = false;
 };

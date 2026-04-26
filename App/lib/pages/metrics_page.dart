@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/pages/balance_page.dart';
+import 'package:mindiff_app/pages/consent_page.dart';
 import 'package:mindiff_app/services/auth_service.dart';
 import 'package:mindiff_app/utils/theme.dart';
 // 🔒 IMPORT RGPD
@@ -237,7 +238,8 @@ class _MetricsPageState extends State<MetricsPage> {
                   ElevatedButton(
                     onPressed: () {
                       // Si tu as des routes nommées, sinon remplace par: Get.to(() => const ConsentPage());
-                      Get.toNamed('/consent'); 
+                      // Get.toNamed('/consent'); 
+                      Get.to(() => const ConsentPage());
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: TColors.primary,
@@ -486,7 +488,9 @@ class _MetricsPageState extends State<MetricsPage> {
                               ),
                             ),
                             // Boutons poids
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 OutlinedButton.icon(
                                   onPressed: () => _showManualWeightDialog(context),
@@ -498,7 +502,6 @@ class _MetricsPageState extends State<MetricsPage> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 ElevatedButton.icon(
                                   onPressed: () => Get.to(() => const BalancePage()),
                                   icon: const Icon(Iconsax.bluetooth, size: 16),

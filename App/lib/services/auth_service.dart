@@ -160,6 +160,13 @@ class AuthService extends GetxService {
     return response as Map<String, dynamic>;
   }
 
+  /// Token device pour la balance IoT → POST /auth/device-token
+  Future<String> getDeviceToken() async {
+    final response =
+        await _api.post('/auth/device-token', {}) as Map<String, dynamic>;
+    return response['access_token'] as String;
+  }
+
   /// Déconnexion → efface le token
   Future<void> logout() async {
     await _api.clearToken();
