@@ -1,42 +1,44 @@
-#pragma once
+﻿#pragma once
 #include <Arduino.h>
-#include <ArduinoJson.h>
+#include <Preferences.h>
 
-// ─── Toutes les données persistées en NVS ────────────────────────────────────
-struct Config {
-    // Credentials WiFi + API
-    String ssid;
-    String password;
-    String token;
-    String apiUrl;
-    int    userId      = -1;
-
-    // Scale
-    float  calibFactor = 1000.0f;
-};
-
-// ─── Accès unique à la persistance (NVS) ─────────────────────────────────────
 class ConfigManager {
 public:
-    // Charge depuis NVS → retourne true si des credentials valides existent
-    bool load();
-
-    // Sauvegarde la config complète en NVS
-    void save(const Config& config);
-
-    // Parse un JSON de provisioning et sauvegarde si valide.
-    // Retourne false si le JSON est invalide ou incomplet.
-    // Format : {"ssid":"...","password":"...","token":"...","api_url":"...","user_id":1}
-    bool applyJson(const char* json, float currentCalibFactor = 1000.0f);
-
-    // Efface tout en NVS (ex : credentials WiFi invalides)
+    void load();
+    void save();
     void clear();
 
-    // True si ssid + token sont renseignés
-    bool isProvisioned() const;
+    // Nom
+    String getName()                       const { return _name;         }
+    void   setName(const String& name)           { _name = name;         }
 
-    const Config& get() const;
+    // WiFi
+    String getWifiSsid()                   const { return _wifiSsid;     }
+    String getWifiPassword()               const { return _wifiPassword; }
+    void   setWifiCredentials(const String& ssid, const String& password) {
+        _wifiSsid = ssid; _wifiPassword = password;
+    }
+
+    // API
+    String getToken()                      const { return _token;        }
+    String getApiUrl()                     const { return _apiUrl;       }
+    int    getUserId()                     const { return _userId;       }
+    void   setApiCredentials(const String& token, const String& apiUrl, int userId) {
+        _token = token; _apiUrl = apiUrl; _userId = userId;
+    }
+
+    // Calibration HX711
+    float  getCalibFactor()                const { return _calibFactor;  }
+    void   setCalibFactor(float factor)          { _calibFactor = factor;}
 
 private:
-    Config _config;
+    Preferences _prefs;
+
+    String _name         = "Balance-ESP32";
+    String _wifiSsid     = "";
+    String _wifiPassword = "";
+    String _token        = "";
+    String _apiUrl       = "";
+    int    _userId       = 0;
+    float  _calibFactor  = 420.0f;
 };

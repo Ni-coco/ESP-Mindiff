@@ -1,19 +1,27 @@
-#pragma once
+﻿#pragma once
 #include <Arduino.h>
+#include <WiFi.h>
+#include "GlobalState.h"
+#include "ConfigManager.h"
 
-// WifiManager ne gère plus la persistance (c'est ConfigManager).
-// Son seul rôle : connecter et reconnecter.
+#define WIFI_TIMEOUT_MS   10000  // 10s avant de reessayer
+#define WIFI_MAX_ATTEMPTS     3  // tentatives max avant retour WAITING_CREDENTIALS
+
 class WifiManager {
 public:
-    // Connexion initiale avec les credentials fournis
-    bool connect(const String& ssid, const String& pass, uint32_t timeoutMs = 10000);
+    WifiManager(GlobalState& state, ConfigManager& config);
 
-    // Tentative de reconnexion (réutilise les derniers credentials)
-    bool reconnect(uint32_t timeoutMs = 5000);
+    void begin();
+    void loop();
 
-    bool isConnected() const;
+private:
+    void _tryConnect();      // phase CONNECTING : tente / retente la connexion
+    void _checkConnection(); // phase OPERATIONAL : surveille la connexion
 
-    // Appelé périodiquement — reconnecte automatiquement si la connexion est perdue.
-    // Retourne true si connecté, false sinon (ou après tentative échouée).
-    bool loop();
+    GlobalState&   _state;
+    ConfigManager& _config;
+
+    bool          _connecting   = false;
+    unsigned long _lastAttempt  = 0;
+    int           _attempts     = 0;
 };

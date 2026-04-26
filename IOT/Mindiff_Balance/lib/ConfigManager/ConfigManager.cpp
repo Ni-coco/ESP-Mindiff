@@ -1,80 +1,40 @@
-#include "ConfigManager.h"
-#include <Preferences.h>
-#include <ArduinoJson.h>
+﻿#include "ConfigManager.h"
 
-static const char* NVS_NS      = "balance";
-static const char* KEY_SSID    = "ssid";
-static const char* KEY_PASS    = "pass";
-static const char* KEY_TOKEN   = "token";
-static const char* KEY_API_URL = "api_url";
-static const char* KEY_USER_ID = "user_id";
-static const char* KEY_CALIB   = "calib";
+#define NVS_NAMESPACE "config"
 
-#ifndef DEFAULT_CALIB_FACTOR
-#define DEFAULT_CALIB_FACTOR 1000.0f
-#endif
+void ConfigManager::load() {
+    _prefs.begin(NVS_NAMESPACE, true);
 
-bool ConfigManager::load() {
-    Preferences prefs;
-    prefs.begin(NVS_NS, true); // lecture seule
-    _config.ssid        = prefs.getString(KEY_SSID,    "");
-    _config.password    = prefs.getString(KEY_PASS,    "");
-    _config.token       = prefs.getString(KEY_TOKEN,   "");
-    _config.apiUrl      = prefs.getString(KEY_API_URL, "");
-    _config.userId      = prefs.getInt   (KEY_USER_ID, -1);
-    _config.calibFactor = prefs.getFloat (KEY_CALIB,   DEFAULT_CALIB_FACTOR);
-    prefs.end();
-    return isProvisioned();
+    _name         = _prefs.getString("name",     _name);
+    _wifiSsid     = _prefs.getString("wifiSsid", _wifiSsid);
+    _wifiPassword = _prefs.getString("wifiPass",  _wifiPassword);
+    _token        = _prefs.getString("token",    _token);
+    _apiUrl       = _prefs.getString("apiUrl",   _apiUrl);
+    _userId       = _prefs.getInt   ("userId",   _userId);
+    _calibFactor  = _prefs.getFloat ("calib",    _calibFactor);
+
+    _prefs.end();
+    Serial.println("[Config] Charge — ssid:" + _wifiSsid + " api:" + _apiUrl);
 }
 
-void ConfigManager::save(const Config& config) {
-    _config = config;
-    Preferences prefs;
-    prefs.begin(NVS_NS, false);
-    prefs.putString(KEY_SSID,    config.ssid);
-    prefs.putString(KEY_PASS,    config.password);
-    prefs.putString(KEY_TOKEN,   config.token);
-    prefs.putString(KEY_API_URL, config.apiUrl);
-    prefs.putInt   (KEY_USER_ID, config.userId);
-    prefs.putFloat (KEY_CALIB,   config.calibFactor);
-    prefs.end();
+void ConfigManager::save() {
+    _prefs.begin(NVS_NAMESPACE, false);
+
+    _prefs.putString("name",     _name);
+    _prefs.putString("wifiSsid", _wifiSsid);
+    _prefs.putString("wifiPass",  _wifiPassword);
+    _prefs.putString("token",    _token);
+    _prefs.putString("apiUrl",   _apiUrl);
+    _prefs.putInt   ("userId",   _userId);
+    _prefs.putFloat ("calib",    _calibFactor);
+
+    _prefs.end();
+    Serial.println("[Config] Sauvegarde OK");
 }
 
 void ConfigManager::clear() {
-    Preferences prefs;
-    prefs.begin(NVS_NS, false);
-    prefs.clear();
-    prefs.end();
-    _config = Config{};
-}
-
-bool ConfigManager::isProvisioned() const {
-    return !_config.ssid.isEmpty() && !_config.token.isEmpty();
-}
-
-const Config& ConfigManager::get() const {
-    return _config;
-}
-
-bool ConfigManager::applyJson(const char* json, float currentCalibFactor) {
-    StaticJsonDocument<512> doc;
-    if (deserializeJson(doc, json) != DeserializationError::Ok) return false;
-
-    String ssid  = doc["ssid"]  | "";
-    String token = doc["token"] | "";
-    int    uid   = doc["user_id"] | -1;
-
-    if (ssid.isEmpty() || token.isEmpty() || uid < 0) return false;
-
-    Config cfg;
-    cfg.ssid        = ssid;
-    cfg.password    = doc["password"] | "";
-    cfg.token       = token;
-    cfg.apiUrl      = doc["api_url"]  | "";
-    cfg.userId      = uid;
-    cfg.calibFactor = currentCalibFactor;
-    save(cfg);
-
-    Serial.printf("[Config] Sauvegarde OK (user %d)\n", uid);
-    return true;
+    _prefs.begin(NVS_NAMESPACE, false);
+    _prefs.clear();
+    _prefs.end();
+    Serial.println("[Config] NVS efface");
 }

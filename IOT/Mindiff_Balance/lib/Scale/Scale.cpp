@@ -1,54 +1,62 @@
-#include "Scale.h"
-#include "WeightUtils.h"
+﻿#include "Scale.h"
 
-#ifndef SIM_WEIGHT_MULTIPLIER
-#define SIM_WEIGHT_MULTIPLIER 1.0f
-#endif
+Scale::Scale(int pinDout, int pinSck, GlobalState& state)
+    : _pinDout(pinDout), _pinSck(pinSck), _state(state) {}
 
-Scale::Scale(int dout, int sck) : _dout(dout), _sck(sck), _calibrationFactor(1000.0f) {}
-
-void Scale::begin(float calibrationFactor) {
-    _calibrationFactor = calibrationFactor;
-    _hx711.begin(_dout, _sck);
-    _hx711.set_scale(_calibrationFactor);
-    // Timeout court : begin() est appelé tôt dans setup(), on ne bloque pas longtemps.
-    // Si le chip n'est pas prêt ici, isReady() le retentera dans la boucle.
-    if (_hx711.wait_ready_timeout(500)) {
-        _hx711.tare();
-    }
+void Scale::begin(float calibFactor) {
+    _hx711.begin(_pinDout, _pinSck);
+    while (!_hx711.is_ready()) delay(10);
+    _hx711.set_scale(calibFactor);
 }
 
 void Scale::tare() {
     _hx711.tare();
 }
 
-float Scale::getWeightKg() {
-    float grams = _hx711.get_units(10);
-    float kg = WeightUtils::gramsToKg(grams);
-    return kg * SIM_WEIGHT_MULTIPLIER;
+void Scale::loop() {
+    if (_state.getPhase() != AppPhase::OPERATIONAL) return;
+    float kg = _read();
+    _state.setWeight(kg);
+    _checkStability(kg);
 }
 
-float Scale::computeCalibration(float knownGrams) {
-    // Calibre sur la valeur nette (raw - tare), plus fiable qu'une moyenne brute.
-    long raw = _hx711.get_value(20);
-    if (raw < 0) raw = -raw;
-    _calibrationFactor = WeightUtils::computeCalibrationFactor(raw, knownGrams);
-    _hx711.set_scale(_calibrationFactor);
-    return _calibrationFactor;
+float Scale::_read() {
+    if (!_hx711.is_ready()) return _lastKg;
+    _lastKg = _hx711.get_units(5);
+    return _lastKg;
 }
 
-void Scale::setCalibrationFactor(float factor) {
-    _calibrationFactor = factor;
-    _hx711.set_scale(_calibrationFactor);
-}
+void Scale::_checkStability(float kg) {
+    // Remplit le buffer circulaire
+    _samples[_sampleIdx] = kg;
+    _sampleIdx = (_sampleIdx + 1) % STABLE_SAMPLES;
+    if (_sampleCount < STABLE_SAMPLES) _sampleCount++;
 
-float Scale::getCalibrationFactor() const {
-    return _calibrationFactor;
-}
+    // Pas encore assez d echantillons
+    if (_sampleCount < STABLE_SAMPLES) return;
 
-bool Scale::isReady() {
-    // delay_ms=10 : donne au simulateur Wokwi le temps d'avancer entre chaque check.
-    // Sans ça, la boucle interne de wait_ready_timeout tourne trop vite et Wokwi
-    // ne peut jamais mettre DT à LOW avant le timeout.
-    return _hx711.wait_ready_timeout(3000, 10);
+    // Poids trop faible → pas de mesure
+    if (kg < MIN_WEIGHT) {
+        _wasStable = false;
+        return;
+    }
+
+    // Cherche min/max dans le buffer
+    float minKg = _samples[0], maxKg = _samples[0];
+    for (int i = 1; i < STABLE_SAMPLES; i++) {
+        if (_samples[i] < minKg) minKg = _samples[i];
+        if (_samples[i] > maxKg) maxKg = _samples[i];
+    }
+
+    bool stable = (maxKg - minKg) < STABLE_THRESHOLD;
+
+    if (stable && !_wasStable) {
+        float avg = 0.0f;
+        for (int i = 0; i < STABLE_SAMPLES; i++) avg += _samples[i];
+        avg /= STABLE_SAMPLES;
+        _state.setPendingWeight(avg);
+        Serial.println("[Scale] Poids stable : " + String(avg, 2) + " kg → API");
+    }
+
+    _wasStable = stable;
 }

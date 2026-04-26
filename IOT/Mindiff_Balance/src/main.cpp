@@ -1,134 +1,108 @@
-#include <Arduino.h>
-
-#include "config/AppConfig.h"
-#include "state/GlobalState.h"
-#include "state/AppState.h"
-#include "protocol/CalibCommand.h"
-
+﻿#include <Arduino.h>
+#include "GlobalState.h"
+#include "ConfigManager.h"
 #include "Scale.h"
 #include "Display.h"
+#include "BatteryMonitor.h"
+#include "CommandHandler.h"
 #include "WifiManager.h"
-#include "ConfigManager.h"
 #include "ApiClient.h"
 
-#include "tasks/ScaleReader.h"
-#include "tasks/ApiSender.h"
-#include "tasks/CalibHandler.h"
-#include "tasks/CommandsHandler.h"
-#include "tasks/BootManager.h"
-#include "tasks/WifiMonitor.h"
+#ifdef NO_BLE
+    #include "SerialComm.h"
+#else
+    #include "BleComm.h"
+#endif
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STATE  (définis ici, déclarés extern dans include/state/)
-// ─────────────────────────────────────────────────────────────────────────────
-GlobalState       gState;
-SemaphoreHandle_t scaleMutex    = nullptr;
-SemaphoreHandle_t displayMutex  = nullptr;
-QueueHandle_t     qStableWeight = nullptr;
-QueueHandle_t     qCalibCmd     = nullptr;
-SemaphoreHandle_t credsSem      = nullptr;
-char              gCredsJson[512] = {};
+#define PIN_DOUT  13
+#define PIN_SCK   14
+#define PIN_BAT   34
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HARDWARE
-// ─────────────────────────────────────────────────────────────────────────────
-Scale         scale(PIN_DOUT, PIN_SCK);
-Display       display;
-WifiManager   wifi;
-ConfigManager configMgr;
-ApiClient*    api = nullptr;
+GlobalState    state;
+ConfigManager  config;
+Scale          scale(PIN_DOUT, PIN_SCK, state);
+Display        display(state);
+BatteryMonitor battery(PIN_BAT, state);
+WifiManager    wifi(state, config);
+ApiClient      apiClient(state, config);
+CommandHandler commandHandler(scale, state, config);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPOSANTS  (dépendances injectées dans le constructeur)
-// ─────────────────────────────────────────────────────────────────────────────
-ScaleReader     scaleReader(scale);
-ApiSender       apiSender(api);
-CalibHandler    calibHandler(scale, display, configMgr);
-CommandsHandler commandsHandler;
-BootManager     bootManager(wifi, configMgr, scale, api);
-WifiMonitor     wifiMonitor(wifi);
+#ifdef NO_BLE
+    SerialComm comm(state, commandHandler);
+#else
+    BleComm    comm(state, commandHandler);
+#endif
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TÂCHES  (thin wrappers — toute la logique est dans les composants)
-// ─────────────────────────────────────────────────────────────────────────────
-void taskDisplay(void*) {
-    while (true) {
-        xSemaphoreTake(displayMutex, portMAX_DELAY);
-        display.render(gState.snapshot());
-        xSemaphoreGive(displayMutex);
-        vTaskDelay(pdMS_TO_TICKS(DELAY_DISPLAY_MS));
-    }
-}
+// ── Tasks ─────────────────────────────────────────────────────────────────────
 
 void taskScale(void*) {
     while (true) {
-        scaleReader.loop();
-        vTaskDelay(pdMS_TO_TICKS(DELAY_SCALE_MS));
+        scale.loop();
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+}
+
+void taskDisplay(void*) {
+    while (true) {
+        display.render();
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+}
+
+void taskBattery(void*) {
+    while (true) {
+        battery.loop();
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+
+void taskComm(void*) {
+    while (true) {
+        comm.loop();
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+void taskWifi(void*) {
+    while (true) {
+        wifi.loop();
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
 void taskApi(void*) {
-    while (true) { apiSender.loop(); }       // bloque sur la queue
-}
-
-void taskCalibration(void*) {
-    while (true) { calibHandler.loop(); }    // bloque sur la queue
-}
-
-void taskCommands(void* param) {
-    commandsHandler.begin((const char*)param);
     while (true) {
-        commandsHandler.loop();
-        vTaskDelay(pdMS_TO_TICKS(DELAY_BLE_NOTIFY_MS));
+        apiClient.loop();
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
-// taskBoot gère deux phases :
-//   - avant OPERATIONAL : appelle bootManager.loop() rapidement (50ms)
-//   - après OPERATIONAL : appelle wifiMonitor.loop() lentement (5s)
-void taskBoot(void*) {
-    while (true) {
-        if (gState.state() == BalanceState::OPERATIONAL) {
-            wifiMonitor.loop();
-            vTaskDelay(pdMS_TO_TICKS(DELAY_WIFI_MONITOR_MS));
-        } else {
-            bootManager.loop();
-            vTaskDelay(pdMS_TO_TICKS(50));
-        }
-    }
-}
+// ── Setup / Loop ──────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SETUP / LOOP
-// ─────────────────────────────────────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
-    Serial.println("=== Balance boot ===");
 
-    // State
-    gState.init();
-    scaleMutex    = xSemaphoreCreateMutex();
-    displayMutex  = xSemaphoreCreateMutex();
-    qStableWeight = xQueueCreate(1, sizeof(float));
-    qCalibCmd     = xQueueCreate(4, sizeof(CalibCommand));
-    credsSem      = xSemaphoreCreateBinary();
+    config.load();
+    state.init();
+    state.setName(config.getName());
 
-    // Hardware
-    configMgr.load();
-    float calib = configMgr.isProvisioned() ? configMgr.get().calibFactor : DEFAULT_CALIB_FACTOR;
-    scale.begin(calib);
+    AppPhase initialPhase = config.getWifiSsid().length() > 0
+        ? AppPhase::CONNECTING           // credentials connus → tente connexion
+        : AppPhase::WAITING_CREDENTIALS; // pas de credentials → attente
+    state.setPhase(initialPhase);
+
+    scale.begin(config.getCalibFactor());
     display.begin();
+    battery.begin();
+    wifi.begin();
+    comm.begin(config.getName());
 
-    // Composants
-    bootManager.begin();   // pré-remplit credentials si credentials.h est défini (Wokwi)
-
-    // Tâches — toutes créées ici, elles gèrent leur propre état de readiness
-    xTaskCreatePinnedToCore(taskDisplay,     "Display",  STACK_DISPLAY,  nullptr,               1, nullptr, 0);
-    xTaskCreatePinnedToCore(taskCommands,    "Commands", STACK_COMMANDS, (void*)"Balance-ESP32", 2, nullptr, 0);
-    xTaskCreatePinnedToCore(taskScale,       "Scale",    STACK_SCALE,    nullptr,               2, nullptr, 1);
-    xTaskCreatePinnedToCore(taskApi,         "Api",      STACK_API,      nullptr,               1, nullptr, 0);
-    xTaskCreatePinnedToCore(taskCalibration, "Calib",    STACK_CALIB,    nullptr,               1, nullptr, 1);
-    xTaskCreatePinnedToCore(taskBoot,        "Boot",     STACK_BOOT,     nullptr,               1, nullptr, 1);
+    xTaskCreatePinnedToCore(taskScale,   "Scale",   2048, nullptr, 1, nullptr, 1);
+    xTaskCreatePinnedToCore(taskDisplay, "Display", 2048, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskBattery, "Battery", 2048, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskComm,    "Comm",    4096, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskWifi,    "Wifi",    4096, nullptr, 1, nullptr, 1);
+    xTaskCreatePinnedToCore(taskApi,     "Api",     8192, nullptr, 1, nullptr, 1);
 }
 
 void loop() {

@@ -23,6 +23,13 @@
       "top": 300,
       "left": 400,
       "attrs": { "i2cAddress": "0x3c" }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot",
+      "top": 150,
+      "left": 550,
+      "attrs": { "value": "100" }
     }
   ],
   "connections": [
@@ -33,6 +40,10 @@
     ["esp:3V3",    "hx711:VCC",  "red",    []],
     ["esp:D13",    "hx711:DT",   "green",  []],
     ["esp:D14",    "hx711:SCK",  "yellow", []],
+
+    ["esp:GND.1",  "pot:GND",    "black",  []],
+    ["esp:3V3",    "pot:VCC",    "red",    []],
+    ["esp:D34",    "pot:SIG",    "orange", []],
 
     ["esp:GND.1",  "oled:GND",   "black",  []],
     ["esp:3V3",    "oled:VCC",   "red",    []],

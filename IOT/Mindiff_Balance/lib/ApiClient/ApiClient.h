@@ -1,20 +1,22 @@
 #pragma once
 #include <Arduino.h>
+#include "GlobalState.h"
+#include "ConfigManager.h"
 
 class ApiClient {
 public:
-    ApiClient(const String& baseUrl, const String& token, int userId);
+    ApiClient(GlobalState& state, ConfigManager& config);
 
-    // GET /health → {"status":"ok"}
-    // Retourne true si l'API est joignable et répond 200
-    bool checkHealth();
-
-    // POST /user/{userId}/weight  → {"weight": kg, "source": "scale"}
-    // Retourne true si HTTP 2xx
-    bool postWeight(float weightKg);
+    void loop();  // verifie s il y a un poids en attente et l envoie
 
 private:
-    String _baseUrl;
-    String _token;
-    int    _userId;
+    bool    _sendWeight(float kg);
+    void    _checkHealth();          // GET /health, met a jour _state.setApiReachable()
+    String  _baseUrl();              // extrait la base URL depuis apiUrl (enleve /api)
+
+    GlobalState&   _state;
+    ConfigManager& _config;
+
+    unsigned long _lastHealthCheck = 0;
+    static constexpr unsigned long HEALTH_INTERVAL_MS = 10000;  // retry toutes les 10s
 };
