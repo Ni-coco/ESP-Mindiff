@@ -1,8 +1,76 @@
 # ESP-Mindiff
 
+Monorepo for the Mindiff fitness app: **FastAPI backend** (`Back/`), **Flutter client** (`App/`), and project documentation (`docs/`).
+
 ## Infrastructure documentation
 
 - Complete architecture and environment credentials are documented in `docs/architecture-credentials.md`.
+
+## Repository layout
+
+| Path | Description |
+|------|-------------|
+| `Back/` | FastAPI API, Alembic migrations, Docker compose for local Postgres/Vault |
+| `App/` | Flutter application (`mindiff_app`) |
+| `docs/` | Architecture, credentials, and product docs |
+
+## Local development
+
+For day-to-day work, run optional services (Postgres), then the API, then the Flutter app. CI and production deployment are described [below](#ci-github-actions--deployment-dokploy).
+
+### Prerequisites
+
+- **Flutter** (stable channel), SDK compatible with `App/pubspec.yaml` (currently `^3.8.1`)
+- **Python** 3.10+
+- [**uv**](https://github.com/astral-sh/uv) (recommended; matches `.github/workflows/ci-back.yml`)
+- **Docker** (optional), for Postgres / Vault / pgAdmin via `Back/docker/docker-compose.yml`
+
+### Optional: PostgreSQL and Vault (Docker)
+
+From `Back/`, ensure `Back/.env` exists (copy from `Back/.env.example` and align `POSTGRES_*` with the compose file), then:
+
+```bash
+cd Back
+cp .env.example .env   # once, then edit values if needed
+docker compose -f docker/docker-compose.yml up -d
+```
+
+This starts Postgres (and Vault, pgAdmin) using `../.env` relative to the compose file, i.e. `Back/.env`.
+
+### Backend (FastAPI)
+
+```bash
+cd Back
+cp .env.example .env   # if you do not already have a .env
+uv sync
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+- API: `http://localhost:8000`
+- OpenAPI: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/health`
+
+More detail (SQLite, manual Alembic, scripts, `ruff`, `pytest`) is in [`Back/README.md`](Back/README.md).
+
+### Flutter app
+
+```bash
+cd App
+flutter pub get
+flutter run              # pick a device or emulator when prompted
+# optional: web
+flutter run -d chrome
+```
+
+The app resolves the API base URL from (highest priority first): `--dart-define=API_BASE_URL=...`, then a loaded `.env` asset, then the default `http://localhost:8000/api` (see `App/lib/config/app_config.dart`). At startup, `App/lib/main.dart` tries `.env` then falls back to the bundled `.env.example`. To point at another backend in **release** builds or CI, prefer `--dart-define=API_BASE_URL=https://your-api.example.com/api`. If you add a custom `App/.env` file for local overrides on device, list it under `flutter: assets:` in `App/pubspec.yaml` so Flutter can bundle it.
+
+Start the backend before exercising login or other network features.
+
+### Typical startup order
+
+1. Postgres (and optional Vault) if you use Docker compose  
+2. Backend (`uv run uvicorn …`)  
+3. Flutter (`flutter run`)
 
 ## CI (GitHub Actions) + Deployment (Dokploy)
 
