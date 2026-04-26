@@ -6,7 +6,7 @@ from datetime import timedelta
 from app.db.database import get_db
 from app.schemas.user import UserCreate, UserResponse, Token, UserLogin
 from app.services import user as user_service
-from app.core.security import create_access_token
+from app.core.security import create_access_token, create_device_token
 from app.core.config import settings
 from app.core.dependencies import get_current_active_user
 from app.models.user import User
@@ -109,3 +109,15 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     Get the current authenticated user.
     """
     return current_user
+
+
+@router.post("/device-token", response_model=Token)
+async def get_device_token(current_user: User = Depends(get_current_active_user)):
+    """
+    Generate a device-scoped token for IoT devices (balance).
+    Requires a valid user token. The returned token has no expiration
+    and is only accepted on POST /user/{user_id}/weight.
+    """
+    token = create_device_token(user_id=current_user.id, email=current_user.email)
+    return {"access_token": token, "token_type": "bearer"}
+
