@@ -1,14 +1,12 @@
 """Tests for app.services.workout module."""
 
 import datetime
-from unittest.mock import MagicMock, patch
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models.exercise import Exercise
 from app.models.user import User
-from app.models.workout import CustomWorkout, WorkoutSession, WorkoutWeek
+from app.models.workout import CustomWorkout, WorkoutWeek
 from app.services import workout as workout_service
 
 
@@ -162,6 +160,7 @@ class TestGenerateWorkoutWeek:
         # Generate twice
         today = datetime.date.today()
         year, week = today.isocalendar()[0:2]
+        user_id = test_user.id
 
         db.query(WorkoutWeek).filter(
             WorkoutWeek.user_id == test_user.id,
@@ -170,17 +169,14 @@ class TestGenerateWorkoutWeek:
         ).delete()
         db.commit()
 
-        workout1 = workout_service.generate_workout_week(
-            db, test_user.id, "build_muscle", 3
-        )
+        workout1 = workout_service.generate_workout_week(db, user_id, "build_muscle", 3)
         ex1 = set(e.exercise_id for s in workout1.sessions for e in s.exercises)
 
         db.query(WorkoutWeek).filter(WorkoutWeek.id == workout1.id).delete()
         db.commit()
+        db.expunge_all()
 
-        workout2 = workout_service.generate_workout_week(
-            db, test_user.id, "build_muscle", 3
-        )
+        workout2 = workout_service.generate_workout_week(db, user_id, "build_muscle", 3)
         ex2 = set(e.exercise_id for s in workout2.sessions for e in s.exercises)
 
         assert ex1 == ex2

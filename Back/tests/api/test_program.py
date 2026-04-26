@@ -12,7 +12,6 @@ Tests cover:
 
 from http import HTTPStatus
 
-import pytest
 from fastapi.testclient import TestClient
 
 

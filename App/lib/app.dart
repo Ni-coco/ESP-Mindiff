@@ -6,7 +6,6 @@ import 'package:mindiff_app/navigation_menu.dart';
 import 'package:mindiff_app/controllers/theme_controller.dart';
 import 'package:mindiff_app/controllers/user_profile_controller.dart';
 import 'package:mindiff_app/services/api_client.dart';
-import 'package:mindiff_app/controllers/active_programme_controller.dart';
 
 class App extends StatelessWidget {
   const App({super.key});

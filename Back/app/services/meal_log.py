@@ -42,7 +42,11 @@ def get_meals_by_date(db: Session, user_id: int, date: datetime.date) -> list[Me
 
 
 def delete_meal(db: Session, meal_id: int, user_id: int) -> bool:
-    entry = db.query(MealLog).filter(MealLog.id == meal_id, MealLog.user_id == user_id).first()
+    entry = (
+        db.query(MealLog)
+        .filter(MealLog.id == meal_id, MealLog.user_id == user_id)
+        .first()
+    )
     if not entry:
         return False
     db.delete(entry)

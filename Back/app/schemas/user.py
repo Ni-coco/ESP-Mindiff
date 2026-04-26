@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime, date
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserMetrics(BaseModel):
@@ -16,8 +17,7 @@ class UserMetricsResponse(BaseModel):
     height: int
     age: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserBase(BaseModel):
@@ -59,8 +59,7 @@ class UserResponse(UserBase):
     health_considerations: Optional[str] = None
     user_metrics: list[UserMetricsResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WeightLogEntry(BaseModel):
@@ -68,8 +67,7 @@ class WeightLogEntry(BaseModel):
     weight: float
     source: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WeightHistoryResponse(BaseModel):
@@ -88,4 +86,3 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
-

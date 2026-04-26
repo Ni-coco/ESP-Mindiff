@@ -88,6 +88,18 @@ class AuthService extends GetxService {
     await _api.put('/user/$userId', body);
   }
 
+  Future<void> deleteAccount(int userId) async {
+    try {
+      // On appelle la route de suppression sur le backend
+      await _api.delete('/user/$userId');
+      
+      // Une fois supprimé en BDD, on nettoie le token localement
+      await logout();
+    } catch (e) {
+      // On propage l'erreur pour pouvoir l'afficher dans l'UI
+      rethrow;
+    }
+  }
   /// Historique de poids → GET /user/{userId}/weight-history
   Future<List<Map<String, dynamic>>> getWeightHistory(int userId) async {
     final response = await _api.get('/user/$userId/weight-history') as Map<String, dynamic>;
