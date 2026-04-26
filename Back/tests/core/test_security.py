@@ -314,3 +314,50 @@ class TestTokenRoundTrip:
 
         assert decoded1["sub"] == "user1@example.com"
         assert decoded2["sub"] == "user2@example.com"
+
+
+class TestDeviceToken:
+    """Tests for create_device_token (IoT balance token)."""
+
+    @patch("app.core.security.settings")
+    def test_create_device_token_no_expiry(self, mock_settings):
+        """Device token must not contain an exp claim."""
+        mock_settings.SECRET_KEY = "test_secret_key_for_jwt"
+        mock_settings.ALGORITHM = "HS256"
+
+        from app.core.security import create_device_token
+
+        token = create_device_token(user_id=1, email="user@example.com")
+        decoded = decode_access_token(token)
+
+        assert decoded is not None
+        assert "exp" not in decoded
+
+    @patch("app.core.security.settings")
+    def test_create_device_token_has_device_scope(self, mock_settings):
+        """Device token must carry scope='device'."""
+        mock_settings.SECRET_KEY = "test_secret_key_for_jwt"
+        mock_settings.ALGORITHM = "HS256"
+
+        from app.core.security import create_device_token
+
+        token = create_device_token(user_id=42, email="user@example.com")
+        decoded = decode_access_token(token)
+
+        assert decoded is not None
+        assert decoded["scope"] == "device"
+
+    @patch("app.core.security.settings")
+    def test_create_device_token_has_user_id(self, mock_settings):
+        """Device token must embed user_id."""
+        mock_settings.SECRET_KEY = "test_secret_key_for_jwt"
+        mock_settings.ALGORITHM = "HS256"
+
+        from app.core.security import create_device_token
+
+        token = create_device_token(user_id=99, email="device@example.com")
+        decoded = decode_access_token(token)
+
+        assert decoded is not None
+        assert decoded["user_id"] == 99
+        assert decoded["sub"] == "device@example.com"

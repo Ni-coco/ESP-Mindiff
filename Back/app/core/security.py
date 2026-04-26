@@ -35,6 +35,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+def create_device_token(user_id: int, email: str) -> str:
+    """Create a scoped JWT for IoT devices. No expiration, only usable for weight posting."""
+    payload = {
+        "sub": email,
+        "user_id": user_id,
+        "scope": "device",
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
 def decode_access_token(token: str) -> Optional[dict]:
     """Check if the given JWT access token is valid."""
     try:

@@ -254,6 +254,50 @@ class TestDirectDependencyFunctions:
         assert "privileges" in exc_info.value.detail.lower()
 
 
+class TestGetDeviceOrUser:
+    """Tests for get_device_or_user dependency (IoT device token)."""
+
+    def test_device_token_accepted_on_weight_post(self, client: TestClient, test_user):
+        """A device-scoped token is accepted on POST /user/{id}/weight."""
+        from app.core.security import create_device_token
+
+        token = create_device_token(user_id=test_user.id, email=test_user.email)
+        response = client.post(
+            f"/api/user/{test_user.id}/weight",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"weight": 75.0, "source": "balance"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_regular_token_still_accepted_on_weight_post(
+        self, client: TestClient, auth_headers: dict, test_user
+    ):
+        """A regular user token is still accepted on POST /user/{id}/weight."""
+        response = client.post(
+            f"/api/user/{test_user.id}/weight",
+            headers=auth_headers,
+            json={"weight": 75.0},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_device_token_without_user_id_rejected(self, client: TestClient, test_user):
+        """Device token missing user_id claim is rejected."""
+        from jose import jwt
+        from app.core.config import settings
+
+        token = jwt.encode(
+            {"sub": test_user.email, "scope": "device"},
+            settings.SECRET_KEY,
+            algorithm=settings.ALGORITHM,
+        )
+        response = client.post(
+            f"/api/user/{test_user.id}/weight",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"weight": 75.0},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
 class TestOAuth2Scheme:
     """Tests for OAuth2 scheme behavior."""
 

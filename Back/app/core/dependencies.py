@@ -56,6 +56,40 @@ async def get_current_active_user(
     return current_user
 
 
+async def get_device_or_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> User:
+    """
+    Accept either a normal user token or a device-scoped token (scope: device).
+    Used exclusively on POST /user/{user_id}/weight.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    payload = decode_access_token(token)
+    if payload is None:
+        raise credentials_exception
+
+    if payload.get("scope") == "device":
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise credentials_exception
+        user = db.query(User).filter(User.id == user_id).first()
+    else:
+        email: Optional[str] = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        user = db.query(User).filter(User.email == email).first()
+
+    if user is None or not user.is_active:
+        raise credentials_exception
+
+    return user
+
+
 async def get_current_superuser(
     current_user: User = Depends(get_current_active_user),
 ) -> User:
