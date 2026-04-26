@@ -257,9 +257,7 @@ class TestDirectDependencyFunctions:
 class TestGetDeviceOrUser:
     """Tests for get_device_or_user dependency (IoT device token)."""
 
-    def test_device_token_accepted_on_weight_post(
-        self, client: TestClient, test_user
-    ):
+    def test_device_token_accepted_on_weight_post(self, client: TestClient, test_user):
         """A device-scoped token is accepted on POST /user/{id}/weight."""
         from app.core.security import create_device_token
 

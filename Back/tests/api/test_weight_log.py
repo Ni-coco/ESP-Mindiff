@@ -240,9 +240,7 @@ class TestWeightAdd:
         assert len(entries) == 1
         assert entries[0].weight == 75.5
 
-    def test_add_weight_with_device_token(
-        self, client: TestClient, test_user
-    ):
+    def test_add_weight_with_device_token(self, client: TestClient, test_user):
         """Device token (scope=device) can post weight for its user."""
         from app.core.security import create_device_token
 

@@ -5,9 +5,11 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class BleService extends GetxController {
-  static const String serviceUUID    = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-  static const String charNotifyUUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8"; // ESP32 → app
-  static const String charWriteUUID  = "6d68efe5-04b6-4a85-abc4-c2670b7bf7fd"; // app → ESP32
+  static const String serviceUUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+  static const String charNotifyUUID =
+      "beb5483e-36e1-4688-b7f5-ea07361b26a8"; // ESP32 → app
+  static const String charWriteUUID =
+      "6d68efe5-04b6-4a85-abc4-c2670b7bf7fd"; // app → ESP32
 
   final isConnected = false.obs;
   final isScanning = false.obs;
@@ -19,7 +21,6 @@ class BleService extends GetxController {
 
   BluetoothDevice? _device;
   BluetoothCharacteristic? _writeChar;
-  BluetoothCharacteristic? _notifyChar;
   StreamSubscription? _weightSubscription;
   StreamSubscription? _connectionSubscription;
   StreamSubscription? _scanSubscription;
@@ -109,32 +110,39 @@ class BleService extends GetxController {
 
       final services = await _device!.discoverServices();
       for (final service in services) {
-        if (service.uuid.toString().toLowerCase() == serviceUUID.toLowerCase()) {
+        if (service.uuid.toString().toLowerCase() ==
+            serviceUUID.toLowerCase()) {
           for (final c in service.characteristics) {
             final uuid = c.uuid.toString().toLowerCase();
             if (uuid == charNotifyUUID.toLowerCase()) {
-              _notifyChar = c;
               await c.setNotifyValue(true);
-              _weightSubscription = FlutterBluePlus.events.onCharacteristicReceived.listen((event) {
-                if (event.device.remoteId != _device!.remoteId) return;
-                if (event.characteristic.characteristicUuid.toString().toLowerCase() != charNotifyUUID.toLowerCase()) return;
-                if (event.value.isEmpty) return;
-                final str = String.fromCharCodes(event.value);
-                try {
-                  final json = jsonDecode(str) as Map<String, dynamic>;
-                  if (json['type'] == 'status') {
-                    isSynced.value = json['synced'] == true;
-                    return;
-                  }
-                  final w = (json['weight'] as num).toDouble();
-                  weight.value = w;
-                  _checkStability(w);
-                } catch (_) {
-                  final w = double.tryParse(str) ?? weight.value;
-                  weight.value = w;
-                  _checkStability(w);
-                }
-              });
+              _weightSubscription = FlutterBluePlus
+                  .events
+                  .onCharacteristicReceived
+                  .listen((event) {
+                    if (event.device.remoteId != _device!.remoteId) return;
+                    if (event.characteristic.characteristicUuid
+                            .toString()
+                            .toLowerCase() !=
+                        charNotifyUUID.toLowerCase())
+                      return;
+                    if (event.value.isEmpty) return;
+                    final str = String.fromCharCodes(event.value);
+                    try {
+                      final json = jsonDecode(str) as Map<String, dynamic>;
+                      if (json['type'] == 'status') {
+                        isSynced.value = json['synced'] == true;
+                        return;
+                      }
+                      final w = (json['weight'] as num).toDouble();
+                      weight.value = w;
+                      _checkStability(w);
+                    } catch (_) {
+                      final w = double.tryParse(str) ?? weight.value;
+                      weight.value = w;
+                      _checkStability(w);
+                    }
+                  });
             } else if (uuid == charWriteUUID.toLowerCase()) {
               _writeChar = c;
             }
@@ -144,7 +152,10 @@ class BleService extends GetxController {
 
       // Demande le statut dès que la discovery est faite
       if (_writeChar != null) {
-        await _writeChar!.write('{"cmd":"status"}'.codeUnits, withoutResponse: false);
+        await _writeChar!.write(
+          '{"cmd":"status"}'.codeUnits,
+          withoutResponse: false,
+        );
       }
     } catch (e) {
       _resetState();
@@ -204,7 +215,6 @@ class BleService extends GetxController {
     weight.value = 0.0;
     weightStable.value = false;
     _writeChar = null;
-    _notifyChar = null;
     _stabilityTimer?.cancel();
   }
 

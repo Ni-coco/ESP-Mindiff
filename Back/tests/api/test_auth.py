@@ -296,8 +296,11 @@ class TestAuthTokenValidation:
         # Device token has no expiry — verify by decoding
         from jose import jwt
         from app.core.config import settings
+
         payload = jwt.decode(
-            data["access_token"], settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+            data["access_token"],
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
             options={"verify_exp": False},
         )
         assert payload.get("scope") == "device"

@@ -120,4 +120,3 @@ async def get_device_token(current_user: User = Depends(get_current_active_user)
     """
     token = create_device_token(user_id=current_user.id, email=current_user.email)
     return {"access_token": token, "token_type": "bearer"}
-
