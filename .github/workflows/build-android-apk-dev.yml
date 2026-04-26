@@ -37,7 +37,7 @@ jobs:
 
       - name: Build release APK
         working-directory: App
-        run: flutter build apk --release --dart-define=API_BASE_URL=https://apidev.nini.network/api
+        run: flutter build apk --release --dart-define=API_BASE_URL=${{ vars.APP_API_BASE_URL_DEV }}
 
       - name: Upload APK workflow artifact
         uses: actions/upload-artifact@v4
