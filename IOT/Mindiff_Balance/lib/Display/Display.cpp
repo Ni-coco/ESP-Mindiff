@@ -16,9 +16,10 @@ void Display::begin() {
 
 void Display::render() {
     switch (_state.getPhase()) {
-        case AppPhase::WAITING_CREDENTIALS: _renderWaiting();    break;
-        case AppPhase::CONNECTING:          _renderConnecting();  break;
-        case AppPhase::OPERATIONAL:         _renderOperational(); break;
+        case AppPhase::WAITING_CREDENTIALS: _renderWaiting();     break;
+        case AppPhase::CONNECTING:          _renderConnecting();   break;
+        case AppPhase::OPERATIONAL:         _renderOperational();  break;
+        case AppPhase::CALIBRATING:         _renderCalibrating();  break;
     }
 }
 
@@ -64,27 +65,82 @@ void Display::_renderConnecting() {
     _oled.display();
 }
 
+void Display::_renderCalibrating() {
+    _oled.clearDisplay();
+    _oled.setTextSize(1);
+
+    if (!_state.isCalibDone()) {
+        // ── Calibration en cours ───────────────────────────────────────────
+        _oled.setCursor(20, 0);
+        _oled.println("Calibration...");
+
+        _oled.setCursor(0, 18);
+        _oled.println("Ne bougez pas");
+        _oled.setCursor(0, 30);
+        _oled.println("l'objet de reference");
+
+        _oled.setTextSize(2);
+        _oled.setCursor(40, 46);
+        _oled.println("...");
+    } else if (_state.isCalibOk()) {
+        // ── Succes ────────────────────────────────────────────────────────
+        _oled.setCursor(30, 4);
+        _oled.println("Calibration");
+
+        _oled.setTextSize(2);
+        _oled.setCursor(35, 20);
+        _oled.println("OK !");
+
+        _oled.setTextSize(1);
+        _oled.setCursor(10, 46);
+        _oled.printf("Ref: %.2f kg", _state.getCalibKgUsed());
+    } else {
+        // ── Echec ─────────────────────────────────────────────────────────
+        _oled.setCursor(30, 4);
+        _oled.println("Calibration");
+
+        _oled.setTextSize(2);
+        _oled.setCursor(20, 20);
+        _oled.println("ECHEC");
+
+        _oled.setTextSize(1);
+        _oled.setCursor(5, 50);
+        _oled.println("Reessayez avec tare");
+    }
+
+    _oled.display();
+}
+
 void Display::_renderOperational() {
-    float kg  = _state.getWeight();
-    int   bat = _state.getBattery();
+    float kg    = _state.getWeight();
+    int   bat   = _state.getBattery();
+    bool  apiOk = _state.isApiReachable();
+    bool  ble   = _state.isConnected();
 
     _oled.clearDisplay();
-
     _oled.setTextSize(1);
-    _oled.setCursor(0, 0);
-    _oled.println("Poids mesure :");
 
+    // ── Barre de statut (ligne du haut) ───────────────────────────────────
+    // BLE (gauche)
+    _oled.setCursor(0, 0);
+    _oled.print(ble ? "BT:OK" : "BT:--");
+
+    // Batterie (centre)
+    _oled.setCursor(44, 0);
+    _oled.printf("Bat:%d%%", bat);
+
+    // API (droite)
+    _oled.setCursor(92, 0);
+    _oled.print(apiOk ? "API:OK" : "API:..");
+
+    // ── Poids (grand) ─────────────────────────────────────────────────────
     _oled.setTextSize(3);
-    _oled.setCursor(0, 20);
+    _oled.setCursor(0, 22);
     _oled.printf("%.2f", kg);
 
     _oled.setTextSize(2);
     _oled.setCursor(90, 30);
-    _oled.println("kg");
-
-    _oled.setTextSize(1);
-    _oled.setCursor(90, 0);
-    _oled.printf("Bat:%d%%", bat);
+    _oled.print("kg");
 
     _oled.display();
 }

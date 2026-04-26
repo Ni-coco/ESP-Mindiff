@@ -31,6 +31,10 @@ public:
     float  getCalibFactor()                const { return _calibFactor;  }
     void   setCalibFactor(float factor)          { _calibFactor = factor;}
 
+    // Offset de tare (raw HX711)
+    long   getTareOffset()                 const { return _tareOffset;   }
+    void   setTareOffset(long offset)            { _tareOffset = offset; }
+
 private:
     Preferences _prefs;
 
@@ -41,4 +45,5 @@ private:
     String _apiUrl       = "";
     int    _userId       = 0;
     float  _calibFactor  = 420.0f;
+    long   _tareOffset   = 0;
 };

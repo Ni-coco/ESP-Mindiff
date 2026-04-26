@@ -10,8 +10,10 @@ void ApiClient::loop() {
 
     // ── Health check : bloque l envoi tant que l API n est pas joignable ──
     if (!_state.isApiReachable()) {
-        unsigned long now = millis();
-        if (now - _lastHealthCheck >= HEALTH_INTERVAL_MS) {
+        unsigned long now     = millis();
+        bool immediate        = _state.takeApiCheckNeeded();  // demande immediate ?
+        bool timerElapsed     = (now - _lastHealthCheck >= HEALTH_INTERVAL_MS);
+        if (immediate || timerElapsed) {
             _lastHealthCheck = now;
             _checkHealth();
         }

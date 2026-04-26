@@ -12,6 +12,7 @@ void ConfigManager::load() {
     _apiUrl       = _prefs.getString("apiUrl",   _apiUrl);
     _userId       = _prefs.getInt   ("userId",   _userId);
     _calibFactor  = _prefs.getFloat ("calib",    _calibFactor);
+    _tareOffset   = _prefs.getLong  ("tare",     _tareOffset);
 
     _prefs.end();
     Serial.println("[Config] Charge — ssid:" + _wifiSsid + " api:" + _apiUrl);
@@ -27,6 +28,7 @@ void ConfigManager::save() {
     _prefs.putString("apiUrl",   _apiUrl);
     _prefs.putInt   ("userId",   _userId);
     _prefs.putFloat ("calib",    _calibFactor);
+    _prefs.putLong  ("tare",     _tareOffset);
 
     _prefs.end();
     Serial.println("[Config] Sauvegarde OK");

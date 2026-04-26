@@ -1,20 +1,79 @@
 ﻿#include "Scale.h"
 
-Scale::Scale(int pinDout, int pinSck, GlobalState& state)
-    : _pinDout(pinDout), _pinSck(pinSck), _state(state) {}
+Scale::Scale(int pinDout, int pinSck, GlobalState& state, ConfigManager& config)
+    : _pinDout(pinDout), _pinSck(pinSck), _state(state), _config(config) {}
 
 void Scale::begin(float calibFactor) {
     _hx711.begin(_pinDout, _pinSck);
     while (!_hx711.is_ready()) delay(10);
     _hx711.set_scale(calibFactor);
+    // Restaure le zero sauvegarde en NVS
+    long savedOffset = _config.getTareOffset();
+    if (savedOffset != 0) {
+        _hx711.set_offset(savedOffset);
+        Serial.println("[Scale] Tare restauree : " + String(savedOffset));
+    }
 }
 
 void Scale::tare() {
     _hx711.tare();
+    // Persiste le nouvel offset en NVS
+    _config.setTareOffset(_hx711.get_offset());
+    _config.save();
+    Serial.println("[Scale] Tare sauvegardee : " + String(_hx711.get_offset()));
+}
+
+bool Scale::_calibrate(float knownKg) {
+    if (knownKg <= 0.0f) return false;
+
+    // Lit la valeur brute (scale = 1 pour avoir le raw pur)
+    _hx711.set_scale(1.0f);
+    float raw = _hx711.get_units(20);  // moyenne sur 20 lectures (~2s)
+
+    if (raw == 0.0f) {
+        Serial.println("[Scale] Calibration impossible : valeur brute nulle");
+        _hx711.set_scale(_config.getCalibFactor());
+        return false;
+    }
+
+    float factor = raw / knownKg;
+    _hx711.set_scale(factor);
+    _config.setCalibFactor(factor);
+    _config.save();
+
+    Serial.println("[Scale] Calibration OK → raw=" + String(raw, 1) +
+                   "  poids=" + String(knownKg, 2) + "kg" +
+                   "  factor=" + String(factor, 2));
+    return true;
 }
 
 void Scale::loop() {
-    if (_state.getPhase() != AppPhase::OPERATIONAL) return;
+    AppPhase phase = _state.getPhase();
+
+    // ── Mode calibration ──────────────────────────────────────────────────
+    if (phase == AppPhase::CALIBRATING) {
+        // Retour OPERATIONAL apres 3s d affichage du resultat
+        if (_calibDoneAt > 0) {
+            if (millis() - _calibDoneAt > 3000) {
+                _state.clearCalibDone();
+                _calibDoneAt = 0;
+                _state.setPhase(AppPhase::OPERATIONAL);
+            }
+            return;
+        }
+
+        // Lit le poids de reference demande par CommandHandler
+        float knownKg = _state.takeCalibPending();
+        if (knownKg > 0.0f) {
+            bool ok = _calibrate(knownKg);
+            _state.setCalibDone(ok, knownKg);
+            _calibDoneAt = millis();
+        }
+        return;
+    }
+
+    // ── Mode normal ───────────────────────────────────────────────────────
+    if (phase != AppPhase::OPERATIONAL) return;
     float kg = _read();
     _state.setWeight(kg);
     _checkStability(kg);

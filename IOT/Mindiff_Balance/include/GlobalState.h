@@ -5,8 +5,9 @@
 
 enum class AppPhase {
     WAITING_CREDENTIALS,  // Pas de credentials → attente BLE/Serial
-    CONNECTING,           // Credentials recus → connexion WiFi (futur)
-    OPERATIONAL           // Tout operationnel → mesure + envoi
+    CONNECTING,           // Credentials recus → connexion WiFi
+    OPERATIONAL,          // Tout operationnel → mesure + envoi
+    CALIBRATING           // Calibration en cours → mesure seule, pas d envoi
 };
 
 // Donnees partagees entre les tasks. Acces protege par mutex.
@@ -39,6 +40,19 @@ public:
     // ── Accessibilite API ──────────────────────────────────────────────────
     void setApiReachable(bool r) { lock(); _apiReachable = r; unlock(); }
     bool isApiReachable()        { lock(); bool v = _apiReachable; unlock(); return v; }
+
+    // Demande un health check immediat (ex: credentials changes)
+    void requestApiCheck()    { lock(); _apiCheckNeeded = true; _apiReachable = false; unlock(); }
+    bool takeApiCheckNeeded() { lock(); bool v = _apiCheckNeeded; _apiCheckNeeded = false; unlock(); return v; }
+
+    // ── Calibration ────────────────────────────────────────────────────────
+    void  setCalibPending(float kg)         { lock(); _calibKg = kg;   unlock(); }
+    float takeCalibPending()                { lock(); float v = _calibKg; _calibKg = 0.0f; unlock(); return v; }
+    void  setCalibDone(bool ok, float kg)   { lock(); _calibDone = true; _calibOk = ok; _calibKgUsed = kg; unlock(); }
+    bool  isCalibDone()                     { lock(); bool v = _calibDone; unlock(); return v; }
+    bool  isCalibOk()                       { lock(); bool v = _calibOk;   unlock(); return v; }
+    float getCalibKgUsed()                  { lock(); float v = _calibKgUsed; unlock(); return v; }
+    void  clearCalibDone()                  { lock(); _calibDone = false;  unlock(); }
 
     // ── Poids stable en attente d envoi API ────────────────────────────────
     // Scale appelle setPendingWeight quand stable.
@@ -77,7 +91,12 @@ private:
     String            _wifiPassword = "";
     int               _wifiAttempts = 0;
     bool              _wifiError    = false;
-    bool              _apiReachable  = false;
+    float             _calibKg        = 0.0f;
+    bool              _calibDone      = false;
+    bool              _calibOk        = false;
+    float             _calibKgUsed    = 0.0f;
+    bool              _apiReachable   = false;
+    bool              _apiCheckNeeded = true;   // true au demarrage → health check immediat
     float             _pendingWeight = -1.0f;
     SemaphoreHandle_t _mutex        = nullptr;
 };

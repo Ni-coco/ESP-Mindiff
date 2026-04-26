@@ -14,6 +14,7 @@ private:
     void _renderWaiting();
     void _renderConnecting();
     void _renderOperational();
+    void _renderCalibrating();
 
     Adafruit_SSD1306 _oled;
     GlobalState&     _state;

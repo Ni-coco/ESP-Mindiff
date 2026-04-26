@@ -20,7 +20,7 @@
 
 GlobalState    state;
 ConfigManager  config;
-Scale          scale(PIN_DOUT, PIN_SCK, state);
+Scale          scale(PIN_DOUT, PIN_SCK, state, config);
 Display        display(state);
 BatteryMonitor battery(PIN_BAT, state);
 WifiManager    wifi(state, config);
@@ -98,7 +98,7 @@ void setup() {
     comm.begin(config.getName());
 
     xTaskCreatePinnedToCore(taskScale,   "Scale",   2048, nullptr, 1, nullptr, 1);
-    xTaskCreatePinnedToCore(taskDisplay, "Display", 2048, nullptr, 1, nullptr, 0);
+    xTaskCreatePinnedToCore(taskDisplay, "Display", 4096, nullptr, 1, nullptr, 0);
     xTaskCreatePinnedToCore(taskBattery, "Battery", 2048, nullptr, 1, nullptr, 0);
     xTaskCreatePinnedToCore(taskComm,    "Comm",    4096, nullptr, 1, nullptr, 0);
     xTaskCreatePinnedToCore(taskWifi,    "Wifi",    4096, nullptr, 1, nullptr, 1);
