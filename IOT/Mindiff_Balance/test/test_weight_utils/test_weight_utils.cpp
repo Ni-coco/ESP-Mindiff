@@ -1,6 +1,9 @@
 #include <unity.h>
 #include "WeightUtils.h"
 
+void setUp()    {}
+void tearDown() {}
+
 void test_grams_to_kg_standard() {
     TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, WeightUtils::gramsToKg(1000.0f));
 }
