@@ -124,8 +124,9 @@ class BleService extends GetxController {
                     if (event.characteristic.characteristicUuid
                             .toString()
                             .toLowerCase() !=
-                        charNotifyUUID.toLowerCase())
+                        charNotifyUUID.toLowerCase()) {
                       return;
+                    }
                     if (event.value.isEmpty) return;
                     final str = String.fromCharCodes(event.value);
                     try {

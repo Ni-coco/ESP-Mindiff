@@ -353,7 +353,7 @@ class _BalancePageState extends State<BalancePage> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: TColors.primary.withOpacity(0.1),
+                        color: TColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
